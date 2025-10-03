@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quantum Sense Trainer</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "phaser": "https://esm.sh/phaser@3.70.0",
+          "phaser/": "https://esm.sh/phaser@3.70.0/",
+          "components/": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/",
+          "utils/": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/utils/",
+          "components/JournalApp.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/JournalApp.js",
+          "components/OnboardingManager.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/OnboardingManager.js",
+          "components/ChatAI.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/ChatAI.js",
+          "utils/AIHelper.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/utils/AIHelper.js"
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400;1,700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap');
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
+        background: linear-gradient(135deg, #1a0033, #330066, #660099);
+        font-family: 'Nunito', sans-serif;
+      }
+      /* Breathing exercise settings styles */
+      #breathing-settings {
+        position: absolute;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        color: #c9c9c9;
+        font-size: 16px;
+        z-index: 1001; /* Above popup bg, below text */
+      }
+      .breathing-setting {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      #breathing-threshold-select, #breathing-speed-select {
+        background: #2d0b4b;
+        color: #00e5ff;
+        border: 1px solid #8a2be2;
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+      #breathing-dont-show-again {
+        width: 18px;
+        height: 18px;
+        accent-color: #8a2be2;
+      }
+      #phaser-game-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+      
+      #phaser-game-container canvas {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      #journal-controls {
+        position: absolute;
+        top: 13%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 85%;
+        max-width: 400px;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        z-index: 1950;
+        gap: 15px;
+      }
+      #journal-search {
+        background: rgba(45, 11, 75, 0.8);
+        border: 1px solid #8a2be2;
+        color: #c9c9c9;
+        padding: 10px;
+        border-radius: 8px;
+        width: 100%;
+        font-size: 16px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      #journal-new-entry {
+        background-color: #2d0b4b;
+        color: #00e5ff;
+        border: 1px solid #8a2be2;
+        padding: 12px 20px;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      #journal-editor-modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 450px;
+        height: 60%;
+        display: none;
+        flex-direction: column;
+        background: rgba(12, 1, 20, 0.98);
+        border: 2px solid #00e5ff;
+        border-radius: 15px;
+        color: #c9c9c9;
+        font-family: 'Arial', sans-serif;
+        box-shadow: 0 0 30px rgba(0, 229, 255, 0.7);
+        z-index: 2100;
+        padding: 25px;
+        box-sizing: border-box;
+      }
+      #journal-editor-textarea {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        border: 1px solid #444;
+        border-radius: 8px;
+        color: #c9c9c9;
+        font-size: 16px;
+        resize: none;
+        padding: 15px;
+        box-sizing: border-box;
+        line-height: 1.6;
+      }
+      #journal-editor-textarea:focus {
+        outline: 1px solid #00e5ff;
+      }
+      .journal-buttons {
+          display: flex;
+          justify-content: flex-end;
+          padding-top: 20px;
+      }
+      .journal-buttons button {
+        background-color: #2d0b4b;
+        color: #00e5ff;
+        border: 1px solid #8a2be2;
+        padding: 10px 20px;
+        margin-left: 10px;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 8px;
+      }
+       .journal-buttons button#journal-delete {
+        background-color: #5a1e1e;
+        color: #ffaaaa;
+        border-color: #a04040;
+        margin-right: auto;
+       }
+      
+      /* Mobile responsive adjustments */
+      @media (max-width: 768px) {
+        #breathing-settings {
+          font-size: 14px;
+        }
+        
+        #journal-controls {
+          width: 90%;
+          max-width: none;
+        }
+        
+        #journal-editor-modal {
+          width: 95%;
+          height: 70%;
+          padding: 15px;
+        }
+        
+        .journal-buttons button {
+          padding: 8px 16px;
+          font-size: 14px;
+        }
+      }
+
+      /* Onboarding alignment overrides to fit native 576px center model */
+      #journalInterface {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+      }
+      /* Hide game canvas while onboarding is active for clean layout */
+      #phaser-game-container.onboarding-active { display: none; }
+      /* Ensure onboarding content centers and matches our 576px design width */
+      .onboarding-container { padding: 0 !important; }
+      .onboarding-content {
+        max-width: 576px !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="phaser-game-container"></div>
+    <!-- Native onboarding container (used by OnboardingManager) -->
+    <div id="journalInterface" style="position: absolute; inset: 0; z-index: 1000;"></div>
+    <div id="journal-controls">
+      <input type="text" id="journal-search" placeholder="Search journal...">
+      <button id="journal-new-entry">+ New Entry</button>
+    </div>
+    <div id="journal-editor-modal">
+      <textarea id="journal-editor-textarea"></textarea>
+      <div class="journal-buttons">
+        <button id="journal-delete">Delete</button>
+        <button id="journal-cancel">Cancel</button>
+        <button id="journal-save">Save</button>
+      </div>
+    </div>
+    <div id="breathing-settings">
+      <div class="breathing-setting">
+        <label for="breathing-threshold-select">Remind me after:</label>
+        <select id="breathing-threshold-select">
+          <option value="3">3 misses</option>
+          <option value="6">6 misses</option>
+          <option value="9">9 misses</option>
+        </select>
+      </div>
+      <div class="breathing-setting">
+        <label for="breathing-speed-select">Breathing speed:</label>
+        <select id="breathing-speed-select" >
+          <option value="slow">Slow & Deep</option>
+          <option value="normal">Normal</option>
+          <option value="fast">Quick & Light</option>
+        </select>
+      </div>
+      <div class="breathing-setting">
+        <input type="checkbox" id="breathing-dont-show-again">
+        <label for="breathing-dont-show-again">Don't show again</label>
+      </div>
+    </div>
+    <!-- Register JournalBridge before game startup so window.JournalBridge is available -->
+    <script type="module" src="./JournalBridge.js"></script>
+    <script type="module" src="main.js"></script>
+    <script src="https://storage.googleapis.com/rosebud_staticfiles/ChatManager.js"></script>
+    <script src="https://storage.googleapis.com/rosebud_staticfiles/ImageGenerator.js"></script>
+    <script src="https://storage.googleapis.com/rosebud_staticfiles/ProgressLogger.js"></script>
+    <script src="https://storage.googleapis.com/rosebud_staticfiles/OGP.js"></script>
+  </body>
+</html>
