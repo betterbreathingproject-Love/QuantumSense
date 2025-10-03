@@ -1,5 +1,5 @@
-import { aiHelper } from 'utils/AIHelper.js';
-import { OnboardingManager } from 'components/OnboardingManager.js';
+import { aiHelper } from '../utils/AIHelper.js';
+import { OnboardingManager } from './OnboardingManager.js';
 export class JournalApp {
     constructor() {
         this.calendarContainer = document.getElementById('calendarContainer');

@@ -120,7 +120,7 @@ export class JournalBridge {
 
       if (!this.app) {
         try {
-          const { JournalApp } = await import('components/JournalApp.js');
+          const { JournalApp } = await import('./QuantumSense Ai Journal-Add on /src/components/JournalApp.js');
           this.app = new JournalApp();
         } catch (err) {
           console.error('JournalBridge failed to load JournalApp:', err);

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { OnboardingManager } from 'components/OnboardingManager.js';
+import { OnboardingManager } from './QuantumSense Ai Journal-Add on /src/components/OnboardingManager.js';
 export class LoginScene extends Phaser.Scene {
   constructor() {
     super({ key: 'LoginScene' });

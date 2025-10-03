@@ -1,4 +1,4 @@
-import { JournalApp } from 'components/JournalApp.js';
+import { JournalApp } from './components/JournalApp.js';
 // Initialize the journal application
 class App {
     constructor() {

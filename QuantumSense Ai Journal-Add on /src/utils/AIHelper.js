@@ -1,4 +1,4 @@
-import { ChatAIClass } from 'components/ChatAI.js';
+import { ChatAIClass } from '../components/ChatAI.js';
 /**
  * AIHelper - A utility module for managing AI interactions with scalable data handling
  * 
