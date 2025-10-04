@@ -1990,10 +1990,24 @@ export class JournalApp {
             { id: 'insightful', emoji: '👁️', label: 'Insightful', color: '#4f46e5' },
             { id: 'grounded', emoji: '🧘', label: 'Grounded', color: '#16a34a' },
             { id: 'foggy', emoji: '🌫️', label: 'Foggy', color: '#64748b' },
-            { id: 'heavy', emoji: '😩', label: 'Heavy', color: '#b91c1c' }
+            { id: 'heavy', emoji: '😩', label: 'Heavy', color: '#b91c1c' },
+            // Wellness + Intuition additions
+            { id: 'calm', emoji: '🧘', label: 'Calm', color: '#22c55e' },
+            { id: 'aligned', emoji: '🎯', label: 'Aligned', color: '#14b8a6' },
+            { id: 'expansive', emoji: '🌌', label: 'Expansive', color: '#8b5cf6' },
+            { id: 'curious', emoji: '🤔', label: 'Curious', color: '#06b6d4' },
+            { id: 'grateful', emoji: '🙏', label: 'Grateful', color: '#f59e0b' },
+            { id: 'clear', emoji: '🧠', label: 'Clear', color: '#60a5fa' },
+            { id: 'intuitive', emoji: '🔮', label: 'Intuitive', color: '#a855f7' },
+            { id: 'sensitive', emoji: '🌿', label: 'Sensitive', color: '#84cc16' },
+            { id: 'creative', emoji: '🎨', label: 'Creative', color: '#ef4444' },
+            { id: 'centered', emoji: '🌀', label: 'Centered', color: '#22c55e' }
         ];
         
-        let selectedMood = existingEntry?.mood || null;
+        // Support multi-select; normalize existing entry value
+        let selectedMoods = Array.isArray(existingEntry?.mood)
+            ? [...(existingEntry?.mood || [])]
+            : (existingEntry?.mood ? [existingEntry.mood] : []);
         
         moods.forEach(mood => {
             const moodButton = document.createElement('button');
@@ -2001,7 +2015,7 @@ export class JournalApp {
             moodButton.className = 'mood-option';
             moodButton.setAttribute('data-mood', mood.id);
             
-            if (selectedMood === mood.id) {
+            if (selectedMoods.includes(mood.id)) {
                 moodButton.classList.add('selected');
             }
             
@@ -2018,18 +2032,20 @@ export class JournalApp {
             moodButton.title = mood.label; // Set tooltip for accessibility
             
             moodButton.addEventListener('click', () => {
-                // Remove selected class from all mood options
-                moodOptions.querySelectorAll('.mood-option').forEach(option => {
-                    option.classList.remove('selected');
-                });
-                
-                // Add selected class to clicked option
-                moodButton.classList.add('selected');
-                selectedMood = mood.id;
+                // Toggle selection for multi-select
+                const id = mood.id;
+                const idx = selectedMoods.indexOf(id);
+                if (idx >= 0) {
+                    selectedMoods.splice(idx, 1);
+                    moodButton.classList.remove('selected');
+                } else {
+                    selectedMoods.push(id);
+                    moodButton.classList.add('selected');
+                }
                 
                 // Update complete button visibility
                 const hasText = textarea.value.trim().length > 0;
-                const hasMood = selectedMood !== null;
+                const hasMood = selectedMoods.length > 0;
                 completeButton.style.opacity = (hasText || hasMood) ? '1' : '0';
                 completeButton.style.transform = (hasText || hasMood) ? 'translateY(0)' : 'translateY(20px)';
             });
@@ -2040,12 +2056,25 @@ export class JournalApp {
         moodSection.appendChild(moodOptions);
         content.appendChild(moodSection);
         
-        // Create text area
+        // Create text area (auto-growing, extra-compact initial footprint)
         const textarea = document.createElement('textarea');
         textarea.className = 'journal-textarea';
         textarea.placeholder = existingEntry ? '' : 'What\'s on your mind today? Let your thoughts flow freely...';
         textarea.value = existingEntry?.text || '';
-        textarea.setAttribute('rows', '12');
+        // Start even more compact (50% smaller than previous)
+        textarea.setAttribute('rows', '2');
+        // Ensure auto-grow behavior
+        textarea.style.overflowY = 'hidden';
+        textarea.style.resize = 'none';
+        const autoGrow = (el) => {
+            // Use at least ~3 lines height, expand as user types
+            const lineHeight = parseFloat(getComputedStyle(el).lineHeight || '24');
+            const minHeight = Math.max(lineHeight * 2, 45);
+            el.style.height = 'auto';
+            el.style.height = Math.max(el.scrollHeight, minHeight) + 'px';
+        };
+        // Initialize height to current content
+        requestAnimationFrame(() => autoGrow(textarea));
         
         content.appendChild(textarea);
         
@@ -2054,16 +2083,18 @@ export class JournalApp {
         completeButton.className = 'complete-button';
         completeButton.textContent = existingEntry ? 'Update journal entry' : 'I\'ve completed this journal entry';
         
-        const hasInitialContent = existingEntry || textarea.value.trim() || selectedMood;
+        const hasInitialContent = existingEntry || textarea.value.trim() || selectedMoods.length > 0;
         completeButton.style.opacity = hasInitialContent ? '1' : '0';
         completeButton.style.transform = hasInitialContent ? 'translateY(0)' : 'translateY(20px)';
         
-        completeButton.addEventListener('click', () => this.completeJournalEntry(date, textarea.value, selectedMood));
+        completeButton.addEventListener('click', () => this.completeJournalEntry(date, textarea.value, selectedMoods));
         
         // Monitor text changes to show/hide complete button
         textarea.addEventListener('input', () => {
+            // Grow with content
+            autoGrow(textarea);
             const hasText = textarea.value.trim().length > 0;
-            const hasMood = selectedMood !== null;
+            const hasMood = selectedMoods.length > 0;
             completeButton.style.opacity = (hasText || hasMood) ? '1' : '0';
             completeButton.style.transform = (hasText || hasMood) ? 'translateY(0)' : 'translateY(20px)';
         });
@@ -2180,8 +2211,9 @@ export class JournalApp {
                 
                 .mood-options {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-                    gap: clamp(0.5rem, 2vw, 0.75rem);
+                    /* 50% smaller tiles: tighter grid and spacing */
+                    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+                    gap: clamp(0.25rem, 1vw, 0.375rem);
                     width: 100%;
                     justify-items: stretch;
                 }
@@ -2191,8 +2223,9 @@ export class JournalApp {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    gap: clamp(0.3rem, 2vw, 0.5rem);
-                    padding: clamp(0.75rem, 3vw, 1rem) clamp(0.5rem, 2vw, 0.75rem);
+                    /* 50% smaller spacing and padding */
+                    gap: clamp(0.15rem, 1vw, 0.25rem);
+                    padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.25rem, 1vw, 0.375rem);
                     background: rgba(255, 255, 255, 0.03);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: clamp(8px, 2vw, 12px);
@@ -2200,7 +2233,7 @@ export class JournalApp {
                     transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
                     font-family: inherit;
                     color: #cccccc;
-                    min-height: 44px;
+                    min-height: 22px; /* 50% smaller */
                     touch-action: manipulation;
                     -webkit-tap-highlight-color: transparent;
                     box-sizing: border-box;
@@ -2222,12 +2255,12 @@ export class JournalApp {
                 }
                 
                 .mood-emoji {
-                    font-size: clamp(1.2rem, 4vw, 1.5rem);
+                    font-size: clamp(0.6rem, 2vw, 0.75rem); /* 50% smaller */
                     line-height: 1;
                 }
                 
                 .mood-label-text {
-                    font-size: clamp(0.7rem, 2.5vw, 0.8rem);
+                    font-size: clamp(0.55rem, 2vw, 0.65rem); /* smaller label text */
                     font-weight: 400;
                     text-align: center;
                     color: #bbbbbb;
@@ -2310,10 +2343,12 @@ export class JournalApp {
                     font-size: clamp(0.9rem, 3.5vw, 1rem);
                     line-height: 1.6;
                     resize: none;
+                    overflow-y: hidden; /* allow auto-grow without scrollbars */
                     padding: clamp(1rem, 4vw, 2rem);
                     border-radius: clamp(12px, 3vw, 16px);
                     transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-                    min-height: clamp(300px, 50vh, 400px);
+                    /* Smaller initial footprint to keep the first view on-screen */
+                    min-height: clamp(90px, 18vh, 160px);
                     box-sizing: border-box;
                     -webkit-appearance: none;
                     -webkit-border-radius: clamp(12px, 3vw, 16px);
@@ -2456,7 +2491,8 @@ export class JournalApp {
         // Save entry
         this.entries[date] = {
             text: text.trim(),
-            mood: mood,
+            // Store mood as array to support multi-select; keep backward compatible
+            mood: Array.isArray(mood) ? mood : (mood ? [mood] : []),
             timestamp: Date.now(),
             date: date
         };
@@ -4187,7 +4223,14 @@ Here are the entries for ${monthName} (${monthlyEntries.length} entries):
                 day: 'numeric' 
             });
             const excerpt = entry.text.length > 300 ? entry.text.substring(0, 300) + '...' : entry.text;
-            const moodInfo = entry.mood ? ` [Mood: ${entry.mood}]` : '';
+            // Support array or string mood values
+            let moodText = '';
+            if (Array.isArray(entry.mood) && entry.mood.length > 0) {
+                moodText = entry.mood.join(', ');
+            } else if (typeof entry.mood === 'string' && entry.mood) {
+                moodText = entry.mood;
+            }
+            const moodInfo = moodText ? ` [Mood: ${moodText}]` : '';
             prompt += `\n${entryDate}${moodInfo}: "${excerpt}"\n`;
         });
         
