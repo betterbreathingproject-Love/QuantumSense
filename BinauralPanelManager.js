@@ -74,7 +74,6 @@ export class BinauralPanelManager {
         buttonContainer.buttonText = buttonText;
         buttonContainer.on('pointerover', () => {
             if (this.activePresetIndex !== i) {
-                this.scene.playSound('button_hover_click');
                 this.scene.tweens.add({ targets: buttonContainer, scale: 1.05, duration: 200, ease: 'Sine.easeOut' });
             }
         });

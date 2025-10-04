@@ -23,9 +23,14 @@ class EmptyHomePanel {
 
 // Embedded onboarding dash panel: mounts the Quantum Sense AI Journal onboarding flow
 // inside the game area (same dimensions as the Phaser canvas), preserving the bottom menu.
+// OnboardingDashPanel: embeds the QuantumSense Journal dashboard (AI Dash)
+// We support two instances: Home Dash and AI Dash. To avoid ID collisions,
+// each instance gets a unique mount id while sharing common CSS via a class.
 class OnboardingDashPanel {
-  constructor(scene) {
+  constructor(scene, instanceName = 'home') {
     this.scene = scene;
+    // instanceName can be 'home' or 'ai' to help identify which panel this is
+    this.instanceName = instanceName;
     this.visible = false;
     this.mountEl = null;
     this.manager = null; // legacy onboarding manager (not used when JournalApp is embedded)
@@ -41,7 +46,9 @@ class OnboardingDashPanel {
       const parent = document.getElementById('phaser-game-container') || document.body;
       if (!this.mountEl) {
         this.mountEl = document.createElement('div');
-        this.mountEl.id = 'onboarding-embedded';
+        // Use a shared class for styles and a unique id per instance
+        this.mountEl.className = 'onboarding-embedded';
+        this.mountEl.id = `onboarding-embedded-${this.instanceName}`;
         this.mountEl.style.cssText = `
           position: absolute;
           left: 0; top: 0; width: 100%; height: 100%;
@@ -71,20 +78,20 @@ class OnboardingDashPanel {
           const styles = document.createElement('style');
           styles.id = 'embeddedOnboardingStyles';
           styles.textContent = `
-            #onboarding-embedded { cursor: default; }
+            .onboarding-embedded { cursor: default; }
             /* Make embedded root fill container but leave space for the bottom menu */
-            #onboarding-embedded .embedded-journal-root { position: absolute; left:0; right:0; top:0; bottom:100px; overflow: auto; pointer-events: auto; background: transparent; }
+            .onboarding-embedded .embedded-journal-root { position: absolute; left:0; right:0; top:0; bottom:100px; overflow: auto; pointer-events: auto; background: #000; }
             /* Ensure the Journal content starts at the very top; avoid vertical centering */
-            #onboarding-embedded #journalInterface { position: absolute; inset: 0; display: flex; align-items: flex-start !important; justify-content: center !important; pointer-events: auto; }
-            #onboarding-embedded #journalInterface > * { margin-top: 0 !important; }
+            .onboarding-embedded #journalInterface { position: absolute; inset: 0; display: flex; align-items: flex-start !important; justify-content: center !important; pointer-events: auto; }
+            .onboarding-embedded #journalInterface > * { margin-top: 0 !important; }
             /* Keep onboarding width comfortable if fallback is used */
-            #onboarding-embedded .onboarding-container { min-height: 100% !important; height: 100% !important; padding: 0.25rem 0.5rem !important; box-sizing: border-box !important; }
-            #onboarding-embedded .onboarding-content { max-width: 560px !important; width: 100% !important; margin: 0 auto !important; margin-top: 0 !important; max-height: calc(100% - 8px) !important; overflow: auto !important; padding: 0.75rem !important; box-sizing: border-box !important; }
+            .onboarding-embedded .onboarding-container { min-height: 100% !important; height: 100% !important; padding: 0.25rem 0.5rem !important; box-sizing: border-box !important; }
+            .onboarding-embedded .onboarding-content { max-width: 560px !important; width: 100% !important; margin: 0 auto !important; margin-top: 0 !important; max-height: calc(100% - 8px) !important; overflow: auto !important; padding: 0.75rem !important; box-sizing: border-box !important; }
             /* Compact scaling for shorter canvases */
-            #onboarding-embedded .ai-avatar-container { width: 140px !important; height: 140px !important; margin-bottom: 1rem !important; }
-            #onboarding-embedded .welcome-title { font-size: 2rem !important; }
-            #onboarding-embedded .welcome-message { font-size: 1rem !important; }
-            #onboarding-embedded .cosmic-button { font-size: 0.95rem !important; padding: 0.6rem 0.9rem !important; }
+            .onboarding-embedded .ai-avatar-container { width: 140px !important; height: 140px !important; margin-bottom: 1rem !important; }
+            .onboarding-embedded .welcome-title { font-size: 2rem !important; }
+            .onboarding-embedded .welcome-message { font-size: 1rem !important; }
+            .onboarding-embedded .cosmic-button { font-size: 0.95rem !important; padding: 0.6rem 0.9rem !important; }
           `;
           document.head.appendChild(styles);
         }
@@ -210,10 +217,24 @@ class OnboardingDashPanel {
     // Clear any existing content
     this.mountEl.innerHTML = '';
 
+    // Ensure only THIS panel has the #journalInterface id to avoid collisions
+    // When multiple embedded dashboards exist (Home Dash + AI Dash), JournalApp
+    // looks up document.getElementById('journalInterface'). If another panel
+    // already mounted its interface, rename and hide it so our instance attaches
+    // to the correct container.
+    try {
+      document.querySelectorAll('#journalInterface').forEach((el, i) => {
+        // Skip if it will be inside our mount (we haven't created it yet)
+        el.id = `journalInterface-preserved-${i}`;
+        el.style.display = 'none';
+      });
+    } catch {}
+
     // Backdrop to fully block game scene under the embedded area while preserving bottom menu
     const bgOverlay = document.createElement('div');
-    // Extend backdrop further (20px below content) so it meets the purple divider line above the bottom menu
-    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:80px; background:#000; pointer-events:none; z-index:0;';
+    // Backdrop blocks pointer events over the content area and visually hides the gameplay behind
+    // Leave bottom menu area clickable (bottom:100px)
+    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; pointer-events:auto; z-index:0; background: rgba(6, 8, 18, 0.96);';
     this.mountEl.appendChild(bgOverlay);
 
     // Create required containers for JournalApp
@@ -221,11 +242,16 @@ class OnboardingDashPanel {
     root.className = 'embedded-journal-root';
     // Leave bottom 100px clear for the Phaser bottom menu and allow inner content to capture input
     // Root remains transparent; black backdrop above ensures no bleed-through
-    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; overflow:auto; pointer-events:auto; background: transparent; z-index:1;';
+    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; overflow:auto; pointer-events:auto; background: rgba(10, 12, 24, 0.98); z-index:1;';
+    // Mark AI Dash instances so JournalApp can tailor layout (skip onboarding, reorder sections)
+    if (this.instanceName === 'ai') {
+      try { root.setAttribute('data-ai-dash', 'true'); window.__AI_DASH__ = true; } catch {}
+    }
 
     // Remove optional header in embedded mode to ensure the true dashboard top is visible
 
     const journalInterface = document.createElement('div');
+    // Give this instance the canonical id so JournalApp targets it
     journalInterface.id = 'journalInterface';
     root.appendChild(journalInterface);
 
@@ -238,6 +264,8 @@ class OnboardingDashPanel {
 
     // Load and initialize JournalApp (it will show onboarding or the dashboard as needed)
     const mod = await import('components/JournalApp.js');
+    // NOTE: JournalApp attaches to #journalInterface internally.
+    // Because we renamed any other existing IDs above, it will bind to THIS instance.
     this.journalApp = new mod.JournalApp();
   }
 
@@ -300,21 +328,44 @@ export class BottomMenuManager {
     // Handle JournalApp CTA: start gameplay directly when user clicks "Play in the Quantum Field"
     try {
       window.addEventListener('quantum-field-play', (evt) => {
-        const desiredLevel = parseInt((evt?.detail?.level) || (localStorage.getItem('lastPlayedLevel') || '1'), 10);
-        const stats = this.statsTracker?.getStats?.() || {};
-        const levelToSet = stats.psychicLevel ? Math.max(1, Math.min(desiredLevel, stats.psychicLevel)) : Math.max(1, desiredLevel);
+        try {
+          const stats = this.statsTracker?.getStats?.() || {};
+          const tutorialSeen = localStorage.getItem('tutorialSeen') === 'true';
+          const desiredLevelRaw = (evt?.detail?.level) || (localStorage.getItem('lastPlayedLevel') || '1');
+          const desiredLevel = parseInt(desiredLevelRaw, 10);
+          // Dice fallback for first-time users or during tutorial
+          const fallbackLevel = 1; // Level 1 = Coin Flip Oracle (dice/coin)
+          const clampedLevel = stats.psychicLevel
+            ? Math.max(1, Math.min(desiredLevel || fallbackLevel, stats.psychicLevel))
+            : Math.max(1, (desiredLevel || fallbackLevel));
+          const levelToSet = tutorialSeen ? clampedLevel : fallbackLevel;
 
-        // Activate Games tab so user lands on the gameplay view
-        try { this.switchTab('games'); } catch {}
+          // Persist for GameScene boot logic
+          try { localStorage.setItem('lastPlayedLevel', String(levelToSet)); } catch {}
+          // Ensure resume flag so GameScene picks it up if we need to switch scenes
+          try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
+          // Avoid any tab auto-switches
+          try { localStorage.removeItem('openTabOnLoad'); } catch {}
 
-        // Close any journal overlay if open
-        try { this.homePanel?.journalBridgePanel?.hide?.(); } catch {}
-        try { window.JournalBridge?.close?.(); } catch {}
-        try { this.onboardingPanel?.hide?.(); } catch {}
+          // Ensure we are in GameScene; if not, route to it (GameScene will read lastPlayedLevel)
+          try {
+            const currentKey = this.scene?.sys?.settings?.key;
+            if (currentKey !== 'GameScene') {
+              this.scene?.scene?.start('GameScene');
+            }
+          } catch (_) {}
 
-        // Route to level and start
-        try { this.scene?.setActiveLevel?.(levelToSet); } catch {}
-        try { this.scene?.startNewRound?.(); } catch {}
+          // Close any journal overlays and embedded dashboards
+          try { this.homePanel?.hide?.(); } catch {}
+          try { this.journalPanel?.hide?.(); } catch {}
+          try { window.JournalBridge?.close?.(); } catch {}
+
+          // If we are already in GameScene, start immediately
+          try { this.scene?.setActiveLevel?.(levelToSet); } catch {}
+          try { this.scene?.startNewRound?.(); } catch {}
+        } catch (err) {
+          console.warn('BottomMenuManager: quantum-field-play handler failed', err);
+        }
       });
     } catch {}
 
@@ -426,19 +477,31 @@ export class BottomMenuManager {
 
   createPanels() {
     // Home tab hosts the embedded onboarding dash with AI assistant (preserve existing onboarding flow)
-    this.homePanel    = new OnboardingDashPanel(this.scene);
+    this.homePanel    = new OnboardingDashPanel(this.scene, 'home');
     this.gamesPanel   = new GamesPanel(this.scene, this.statsTracker);
-    // Use Phaser-native JournalPanel for Approach A (no DOM overlay)
-    this.journalPanel = new JournalPanel(this.scene, this.statsTracker);
+    // Infinity AI tab duplicates the embedded Journal dashboard (OnboardingDashPanel)
+    // This mirrors the Home tab’s embedded journal while keeping Home intact
+    this.journalPanel = new OnboardingDashPanel(this.scene, 'ai');
     this.globalTrendsPanel = new GlobalTrendsPanel(this.scene, this.statsTracker); // Replaced StatsPanel with GlobalTrendsPanel
 
     // Open preferred tab on load if specified (e.g., set by JournalApp "Play" CTA)
-    const initialTab = (typeof localStorage !== 'undefined' && localStorage.getItem('openTabOnLoad')) || 'home';
+    // But if the tutorial hasn't been seen yet, force Home so gameplay (dice) remains the background
+    const tutorialSeen = (typeof localStorage !== 'undefined' && localStorage.getItem('tutorialSeen') === 'true');
+    const requestedTab = (typeof localStorage !== 'undefined' && localStorage.getItem('openTabOnLoad'));
+    const initialTab = tutorialSeen ? (requestedTab || 'home') : 'home';
     try { localStorage.removeItem('openTabOnLoad'); } catch {}
     this.switchTab(initialTab);
   }
 
   switchTab(tabId) {
+    // Block opening the Games panel during tutorial so the dice scene remains the background
+    try {
+      const tutorialSeen = localStorage.getItem('tutorialSeen') === 'true';
+      if ((this.scene?.isTutorialActive || !tutorialSeen) && tabId === 'games') {
+        console.debug('BottomMenuManager: Blocking Games tab while tutorial is active/first run');
+        return;
+      }
+    } catch (_) {}
     // Toggle behavior: clicking same active tab hides its panel and clears activeTab
     if (this.activeTab === tabId && this.currentPanel && this.currentPanel.isVisible()) {
       this.hideCurrentPanel();
@@ -710,7 +773,6 @@ class HomePanel {
     
     // Add hover effects
     streakContainer.on('pointerover', () => {
-      this.scene.playSound?.('button_hover_click', { volume: 0.3 });
       this.scene.tweens.add({ targets: streakContainer, scale: 1.05, duration: 200, ease: 'Power2' });
       streakBg.clear();
       streakBg.fillStyle(THEME.cardBg, 1).fillRoundedRect(-120, -40, 240, 80, 15);
@@ -789,7 +851,6 @@ class HomePanel {
     });
 
     startButton.on('pointerover', () => {
-      this.scene.playSound?.('button_hover_click', { volume: 0.3 });
       this.scene.tweens.add({ targets: startButton, scale: 1.05, duration: 200, ease: 'Power2' });
       startBtnBg.clear();
       startBtnBg.fillStyle(THEME.accent, 1).fillRoundedRect(-100, -20, 200, 40, 20);

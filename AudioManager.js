@@ -5,6 +5,14 @@ export class AudioManager {
     this.backgroundMusic = null;
     this.currentOmmingSound = null;
     this.ommingVolume = 0;
+    // Rate-limit certain SFX to prevent rapid repeat (e.g., hover click spam)
+    this.lastPlayAt = {};
+    this.rateLimits = {
+      'button_hover_click': 300, // ms between plays
+      'button_ambience': 1500,
+      'success-fanfare-trumpets-6185': 1000,
+      'game-over-arcade-6435': 1000,
+    };
     
     // Simple initialization
     this.audioSettings = {
@@ -70,6 +78,15 @@ export class AudioManager {
       }
       
       if (this.scene.cache.audio.exists(soundKey)) {
+        // Rate limit to avoid constant clicking or ambience spam
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const limitMs = this.rateLimits[soundKey] || 0;
+        if (limitMs > 0) {
+          const lastAt = this.lastPlayAt[soundKey] || 0;
+          if (now - lastAt < limitMs) {
+            return; // Skip play due to rate limit
+          }
+        }
         const soundConfig = {
           volume: config.volume || this.audioSettings.sfxVolume,
           ...config
@@ -79,7 +96,9 @@ export class AudioManager {
           return;
         }
         
-        return this.scene.sound.play(soundKey, soundConfig);
+        const played = this.scene.sound.play(soundKey, soundConfig);
+        this.lastPlayAt[soundKey] = now;
+        return played;
       }
     } catch (error) {
       console.error(`Error playing sound ${soundKey}:`, error);

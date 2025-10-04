@@ -18,19 +18,35 @@ export class BootScene extends Phaser.Scene {
     // Using the same particle image ensures the emitter has a valid texture key
     this.load.image('star', 'https://play.rosebud.ai/assets/neonSwipeParticle.png?RuFN');
     this.load.image('buttonBG', 'https://play.rosebud.ai/assets/Screenshot 2025-09-13 at 12.16.05pm.png?XtBi');
-    // win and lose sounds are now synthesized, no need to load
-    this.load.audio('background_music', 'https://play.rosebud.ai/assets/The background music.mp3?IkTs');
-    // Load tom sounds for prediction buttons
-    this.load.audio('tom1', 'https://play.rosebud.ai/assets/028_Tuned_Tom_A_-_ORGANICHOUSE_Zenhiser.wav?0qPU');
-    this.load.audio('tom2', 'https://play.rosebud.ai/assets/027_Tuned_Tom_A_High_-_ORGANICHOUSE_Zenhiser.wav?Gqhx');
-    this.load.audio('tom3', 'https://play.rosebud.ai/assets/030_Tuned_Tom_C_-_ORGANICHOUSE_Zenhiser.wav?GpQm');
-    this.load.audio('tom4', 'https://play.rosebud.ai/assets/029_Tuned_Tom_C_High_-_ORGANICHOUSE_Zenhiser.wav?toWU');
-    this.load.audio('tom5', 'https://play.rosebud.ai/assets/026_Pluck_C_-_ORGANICHOUSE_Zenhiser.wav?6PC0');
-    this.load.audio('tom6', 'https://play.rosebud.ai/assets/030_Tuned_Tom_C_-_ORGANICHOUSE_Zenhiser.wav?GpQm');
-    this.load.audio('success-fanfare-trumpets-6185', 'https://play.rosebud.ai/assets/success-fanfare-trumpets-6185.mp3?rVFo');
-    this.load.audio('game-over-arcade-6435', 'https://play.rosebud.ai/assets/game-over-arcade-6435.mp3?kKij');
-    this.load.audio('button_ambience', 'https://play.rosebud.ai/assets/Freeze AMBIENCE [2022-01-12 143844]-1.wav?Dilm');
-    this.load.audio('button_hover_click', 'https://play.rosebud.ai/assets/ZEN_APM_percussion_one_shot_click.wav?m6fS');
+    
+    // Optional remote audio loading
+    // Set localStorage.enableRemoteAudio = 'false' to skip preloading remote audio and avoid network errors
+    const enableRemoteAudio = (typeof localStorage !== 'undefined')
+      ? localStorage.getItem('enableRemoteAudio') !== 'false'
+      : true;
+    // Graceful loader error handling to avoid noisy console when remote assets fail/abort
+    try {
+      this.load.on('loaderror', (file) => {
+        console.warn('[BootScene] Asset load error:', file && file.src || file);
+      });
+    } catch {}
+    if (enableRemoteAudio) {
+      // win and lose sounds are now synthesized, no need to load
+      this.load.audio('background_music', 'https://play.rosebud.ai/assets/The background music.mp3?IkTs');
+      // Load tom sounds for prediction buttons
+      this.load.audio('tom1', 'https://play.rosebud.ai/assets/028_Tuned_Tom_A_-_ORGANICHOUSE_Zenhiser.wav?0qPU');
+      this.load.audio('tom2', 'https://play.rosebud.ai/assets/027_Tuned_Tom_A_High_-_ORGANICHOUSE_Zenhiser.wav?Gqhx');
+      this.load.audio('tom3', 'https://play.rosebud.ai/assets/030_Tuned_Tom_C_-_ORGANICHOUSE_Zenhiser.wav?GpQm');
+      this.load.audio('tom4', 'https://play.rosebud.ai/assets/029_Tuned_Tom_C_High_-_ORGANICHOUSE_Zenhiser.wav?toWU');
+      this.load.audio('tom5', 'https://play.rosebud.ai/assets/026_Pluck_C_-_ORGANICHOUSE_Zenhiser.wav?6PC0');
+      this.load.audio('tom6', 'https://play.rosebud.ai/assets/030_Tuned_Tom_C_-_ORGANICHOUSE_Zenhiser.wav?GpQm');
+      this.load.audio('success-fanfare-trumpets-6185', 'https://play.rosebud.ai/assets/success-fanfare-trumpets-6185.mp3?rVFo');
+      this.load.audio('game-over-arcade-6435', 'https://play.rosebud.ai/assets/game-over-arcade-6435.mp3?kKij');
+      this.load.audio('button_ambience', 'https://play.rosebud.ai/assets/Freeze AMBIENCE [2022-01-12 143844]-1.wav?Dilm');
+      this.load.audio('button_hover_click', 'https://play.rosebud.ai/assets/ZEN_APM_percussion_one_shot_click.wav?m6fS');
+    } else {
+      console.info('[BootScene] Remote audio preloads disabled (enableRemoteAudio=false).');
+    }
     this.load.image('heads', 'assets/Heads1.png');
     this.load.image('tails', 'assets/Tails1.png');
     this.load.image('gold_shield', 'https://play.rosebud.ai/assets/pngtree-gold-shield-png-clipart-free-png-image_11535486.png?5Iix');

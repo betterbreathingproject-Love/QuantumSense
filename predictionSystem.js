@@ -65,7 +65,6 @@ export class PredictionSystem {
     container.on('pointerover', () => {
         const journalOpen = this.getJournalState ? this.getJournalState() : false;
         if(this.scene.gameState === 'predicting' && !journalOpen) {
-            this.scene.playSound('button_hover_click');
             glow.setVisible(true);
             this.scene.tweens.add({ targets: container, scale: 1.05, duration: 200, ease: 'Sine.easeOut' });
         }

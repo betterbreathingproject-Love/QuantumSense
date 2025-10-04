@@ -625,7 +625,7 @@ export class DiceController {
           return;
       }
       
-      this.scene.playSound('button_hover_click');
+      // Removed hover click sound to avoid non-click audio
       
       this.scene.tweens.add({
           targets: this.catSprite,
@@ -657,12 +657,10 @@ export class DiceController {
                   yoyo: true,
                   repeat: 2,
                   onYoyo: () => {
-                      // Play shuffle sound each time boxes move
-                      this.scene.playSound('button_hover_click');
+                      // Removed hover click sound during shuffle to enforce click-only sounds
                   },
                   onRepeat: () => {
-                      // Play shuffle sound each time boxes move
-                      this.scene.playSound('button_hover_click');
+                      // Removed hover click sound during shuffle to enforce click-only sounds
                   }
               });
               

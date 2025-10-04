@@ -17,7 +17,19 @@ export class JournalApp {
     init() {
         this.renderSettingsButton();
         
-        // Check if user has completed onboarding
+        // Detect AI Dash embedding (Infinity AI tab) scoped to THIS instance only
+        // We must NOT scan the whole DOM because other hidden panels may exist.
+        const currentRoot = this.journalInterface?.closest('.embedded-journal-root');
+        const isAiDash = !!(currentRoot && currentRoot.getAttribute('data-ai-dash') === 'true');
+        if (isAiDash) {
+            // Ensure onboarding is considered complete and persist this state
+            this.userData.hasCompletedOnboarding = true;
+            this.saveUserData();
+            this.showDashboard();
+            return;
+        }
+        
+        // Otherwise, respect normal onboarding flow when not in AI Dash
         if (this.userData.hasCompletedOnboarding) {
             this.showDashboard();
         } else {
@@ -301,6 +313,112 @@ export class JournalApp {
         const header = document.createElement('div');
         header.className = 'dashboard-header';
         
+        const containerRoot = document.getElementById('journalInterface')?.closest('.embedded-journal-root');
+        const isAiDash = !!(containerRoot && containerRoot.getAttribute('data-ai-dash') === 'true');
+        
+        // When in AI Dash, show the AI avatar we used in onboarding at the top
+        if (isAiDash) {
+            const avatarContainer = document.createElement('div');
+            avatarContainer.className = 'ai-avatar-container';
+
+            // Optional avatar configuration via localStorage
+            const cfg = {
+                src: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarSrc') : null),
+                type: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarType') : null),
+                size: (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('aiAvatarSize') || '120', 10) : 120),
+                shape: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarShape') || 'circle' : 'circle')
+            };
+            try {
+                avatarContainer.style.width = `${cfg.size}px`;
+                avatarContainer.style.height = `${cfg.size}px`;
+                avatarContainer.style.borderRadius = (cfg.shape === 'rounded') ? '16px' : '50%';
+            } catch {}
+
+            const isImageSrc = cfg.src && (/\.(gif|png|jpg|jpeg|svg)$/i.test(cfg.src) || (cfg.type || '').toLowerCase() === 'image');
+            if (isImageSrc && cfg.src) {
+                const img = new Image();
+                img.className = 'ai-avatar-image';
+                img.src = cfg.src;
+                img.onerror = () => {
+                    console.warn('AI avatar image failed to load, falling back to video');
+                    avatarContainer.innerHTML = '';
+                    const fallbackVideo = document.createElement('video');
+                    fallbackVideo.className = 'ai-avatar-video';
+                    const localSrc = './QuantumSense%20Ai%20Journal-Add%20on%20/assets/89bb595c589a8797e525e7ae9b04253c.mp4';
+                    const remoteSrc = 'https://play.rosebud.ai/assets/89bb595c589a8797e525e7ae9b04253c.mp4?i6LY';
+                    fallbackVideo.src = localSrc;
+                    fallbackVideo.autoplay = true;
+                    fallbackVideo.loop = true;
+                    fallbackVideo.muted = true;
+                    fallbackVideo.playsInline = true;
+                    fallbackVideo.preload = 'metadata';
+                    fallbackVideo.addEventListener('error', () => {
+                        try {
+                            if (fallbackVideo.src.includes('QuantumSense%20Ai%20Journal-Add%20on%20')) {
+                                fallbackVideo.src = remoteSrc;
+                                fallbackVideo.load();
+                                return;
+                            }
+                        } catch {}
+                        avatarContainer.innerHTML = `
+                            <div class="avatar-fallback">
+                                <span class="cosmic-spark">🤖</span>
+                                <span class="avatar-fallback-text">AI Coach</span>
+                            </div>
+                        `;
+                    });
+                    fallbackVideo.addEventListener('abort', () => {
+                        avatarContainer.innerHTML = `
+                            <div class="avatar-fallback">
+                                <span class="cosmic-spark">🤖</span>
+                                <span class="avatar-fallback-text">AI Coach</span>
+                            </div>
+                        `;
+                    });
+                    avatarContainer.appendChild(fallbackVideo);
+                };
+                avatarContainer.appendChild(img);
+            } else {
+                const avatarVideo = document.createElement('video');
+                avatarVideo.className = 'ai-avatar-video';
+                const localSrc = './QuantumSense%20Ai%20Journal-Add%20on%20/assets/89bb595c589a8797e525e7ae9b04253c.mp4';
+                const remoteSrc = 'https://play.rosebud.ai/assets/89bb595c589a8797e525e7ae9b04253c.mp4?i6LY';
+                avatarVideo.src = localSrc;
+                avatarVideo.autoplay = true;
+                avatarVideo.loop = true;
+                avatarVideo.muted = true;
+                avatarVideo.playsInline = true;
+                avatarVideo.preload = 'metadata';
+                avatarVideo.addEventListener('error', () => {
+                    try {
+                        if (avatarVideo.src.includes('QuantumSense%20Ai%20Journal-Add%20on%20')) {
+                            avatarVideo.src = remoteSrc;
+                            avatarVideo.load();
+                            return;
+                        }
+                    } catch {}
+                    console.warn('AI avatar video failed to load, showing fallback');
+                    avatarContainer.innerHTML = `
+                        <div class="avatar-fallback">
+                            <span class="cosmic-spark">🤖</span>
+                            <span class="avatar-fallback-text">AI Coach</span>
+                        </div>
+                    `;
+                });
+                avatarVideo.addEventListener('abort', () => {
+                    console.warn('AI avatar video load aborted, using fallback');
+                    avatarContainer.innerHTML = `
+                        <div class="avatar-fallback">
+                            <span class="cosmic-spark">🤖</span>
+                            <span class="avatar-fallback-text">AI Coach</span>
+                        </div>
+                    `;
+                });
+                avatarContainer.appendChild(avatarVideo);
+            }
+            header.appendChild(avatarContainer);
+        }
+        
         const welcomeBack = document.createElement('h1');
         welcomeBack.className = 'dashboard-title';
         welcomeBack.innerHTML = `
@@ -317,21 +435,96 @@ export class JournalApp {
         
         container.appendChild(header);
         
+        if (isAiDash) {
+            // AI Dash layout: Insights (default size), then Today's Journal, then All Entries
+            const insightsSection = this.createInsightsSection(false);
+            container.appendChild(insightsSection);
+            const journalSection = this.createJournalAccessSection();
+            container.appendChild(journalSection);
+            const allEntriesSection = this.createAllEntriesSection();
+            container.appendChild(allEntriesSection);
+            return container;
+        }
+        
+        // Default dashboard layout
         // Weekly check-in section
         const weeklySection = this.createWeeklyCheckInSection();
         container.appendChild(weeklySection);
+
+        // Player performance section (placed directly under 7-Day Quantum Streak)
+        const performanceSection = this.createPlayerPerformanceSection();
+        container.appendChild(performanceSection);
+
+        // Home dash action: Play Now button (separate from AI Dash)
+        // Placed directly under performance tiles for quick access
+        const homeActions = document.createElement('div');
+        homeActions.className = 'home-bottom-actions';
+        // Inline styles to ensure visibility even if global styles are missing
+        homeActions.style.display = 'flex';
+        homeActions.style.justifyContent = 'center';
+        homeActions.style.alignItems = 'center';
+        homeActions.style.marginTop = '16px';
+
+        const playNowButton = document.createElement('button');
+        playNowButton.className = 'cosmic-button primary play-now-button';
+        playNowButton.textContent = 'Play Now';
+        // Minimal inline styling for consistent UI
+        playNowButton.style.padding = '14px 20px';
+        playNowButton.style.borderRadius = '12px';
+        playNowButton.style.background = 'linear-gradient(90deg, #6b46c1, #3182ce)';
+        playNowButton.style.color = '#ffffff';
+        playNowButton.style.fontWeight = '600';
+        playNowButton.style.border = 'none';
+        playNowButton.style.cursor = 'pointer';
+        playNowButton.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+        playNowButton.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
+        playNowButton.addEventListener('mouseenter', () => {
+            playNowButton.style.transform = 'translateY(-1px)';
+            playNowButton.style.boxShadow = '0 12px 24px rgba(0,0,0,0.3)';
+        });
+        playNowButton.addEventListener('mouseleave', () => {
+            playNowButton.style.transform = 'translateY(0)';
+            playNowButton.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+        });
+
+        playNowButton.addEventListener('click', () => {
+            try {
+                // Determine target level from last play or player stats
+                let lastLevel = parseInt(localStorage.getItem('lastPlayedLevel') || '0', 10);
+                if (!lastLevel || Number.isNaN(lastLevel)) {
+                    try {
+                        const stats = JSON.parse(localStorage.getItem('divineSenseGameStats') || '{}');
+                        lastLevel = parseInt(stats?.psychicLevel || '1', 10);
+                    } catch {}
+                }
+                localStorage.setItem('lastPlayedLevel', String(lastLevel || 1));
+
+                // If embedded inside the game, signal to start immediately
+                const isEmbeddedInGame = !!(window.JournalBridge) || !!document.querySelector('#phaser-game-container canvas');
+                if (isEmbeddedInGame) {
+                    try { window.JournalBridge && window.JournalBridge.close(); } catch {}
+                    try {
+                        window.dispatchEvent(new CustomEvent('quantum-field-play', { detail: { level: lastLevel || 1 } }));
+                    } catch {}
+                    return;
+                }
+
+                // Otherwise navigate to the main game page at root
+                try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
+                try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
+                try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
+                window.location.href = '/index.html';
+            } catch (err) {
+                console.warn('Play Now: Failed to launch game', err);
+                this.showDebugMessage('Unable to open the game.');
+            }
+        });
+
+        homeActions.appendChild(playNowButton);
+        container.appendChild(homeActions);
         
-        // Journal access section
-        const journalSection = this.createJournalAccessSection();
-        container.appendChild(journalSection);
-        
-        // All entries section
-        const allEntriesSection = this.createAllEntriesSection();
-        container.appendChild(allEntriesSection);
-        
-        // Insights section
-        const insightsSection = this.createInsightsSection();
-        container.appendChild(insightsSection);
+        // Removed Insights section from Home Dash per request
+        // Previously: createInsightsSection(true) appended here
         
         return container;
     }
@@ -366,6 +559,79 @@ export class JournalApp {
         }
         
         section.appendChild(weekGrid);
+        return section;
+    }
+
+    // Player Performance section styled similarly to the 7-Day Quantum Streak
+    createPlayerPerformanceSection() {
+        const section = document.createElement('div');
+        section.className = 'player-performance-section';
+
+        const sectionTitle = document.createElement('h2');
+        sectionTitle.className = 'section-title';
+        sectionTitle.innerHTML = `
+            <span class="section-icon">🏆</span>
+            Player Performance
+        `;
+        section.appendChild(sectionTitle);
+
+        const stats = (() => {
+            try {
+                return JSON.parse(localStorage.getItem('divineSenseGameStats') || '{}');
+            } catch {
+                return {};
+            }
+        })();
+
+        const qScore = Math.round(Number(stats.qScore ?? stats.zenScore ?? 0));
+        const accuracy = Number(stats.accuracy ?? 0);
+        const totalRolls = Number(stats.totalRolls ?? 0);
+        const currentStreak = Number(stats.currentStreak ?? 0);
+        const dailyCoherenceTime = Number(stats.dailyCoherenceTime ?? 0);
+        const totalCoherenceTime = Number(stats.totalCoherenceTime ?? 0);
+        const shieldsOwned = Number(stats.streakShields ?? 0);
+
+        const formatMinutes = (min) => {
+            const m = Math.floor(Number(min) || 0);
+            if (m < 60) return `${m}m`;
+            const h = Math.floor(m / 60);
+            const rem = m % 60;
+            return `${h}h ${rem}m`;
+        };
+
+        const grid = document.createElement('div');
+        grid.className = 'performance-grid';
+
+        const makeItem = (icon, label, value, accentClass = '') => {
+            const item = document.createElement('div');
+            item.className = `performance-item ${accentClass}`;
+
+            const iconEl = document.createElement('div');
+            iconEl.className = 'performance-icon';
+            iconEl.textContent = icon;
+            item.appendChild(iconEl);
+
+            const valueEl = document.createElement('div');
+            valueEl.className = 'performance-value';
+            valueEl.textContent = value;
+            item.appendChild(valueEl);
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'performance-label';
+            labelEl.textContent = label;
+            item.appendChild(labelEl);
+
+            return item;
+        };
+
+        grid.appendChild(makeItem('📈', 'Q-SCORE', `${qScore}`));
+        grid.appendChild(makeItem('🎯', 'ACCURACY', `${accuracy.toFixed(1)}%`, 'accent-accuracy'));
+        grid.appendChild(makeItem('🌀', 'COHERENCE', `${formatMinutes(dailyCoherenceTime)} today · ${formatMinutes(totalCoherenceTime)} total`));
+        grid.appendChild(makeItem('🛡️', 'SHIELDS OWNED', `${shieldsOwned}`));
+        grid.appendChild(makeItem('🔥', 'CURRENT STREAK', `${currentStreak}`));
+        grid.appendChild(makeItem('🎲', 'TOTAL PREDICTIONS', `${totalRolls}`));
+
+        section.appendChild(grid);
         return section;
     }
     
@@ -547,9 +813,9 @@ export class JournalApp {
         return section;
     }
     
-    createInsightsSection() {
+    createInsightsSection(compact = false) {
         const section = document.createElement('div');
-        section.className = 'insights-section';
+        section.className = 'insights-section' + (compact ? ' compact' : '');
         
         const sectionTitle = document.createElement('h2');
         sectionTitle.className = 'section-title';
@@ -4031,6 +4297,39 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                     text-align: center;
                     margin-bottom: 3rem;
                 }
+                /* AI Dash avatar header styling */
+                .dashboard-header .ai-avatar-container {
+                    width: 120px;
+                    height: 120px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    margin: 0 auto 0.75rem;
+                    background: #0b0b0b;
+                    border: 1px solid rgba(255,255,255,0.08);
+                    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
+                }
+                .dashboard-header .ai-avatar-video {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: inherit;
+                }
+                .dashboard-header .ai-avatar-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: inherit;
+                    display: block;
+                }
+                .dashboard-header .avatar-fallback {
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.2rem;
+                    color: #bbb;
+                }
                 
                 .dashboard-title {
                     font-size: 2rem;
@@ -4068,6 +4367,37 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                     margin-bottom: clamp(1.5rem, 3vw, 2rem);
                     box-sizing: border-box;
                 }
+
+                /* Compact variant to reduce the Insights tile size */
+                .insights-section.compact {
+                    padding: 0.75rem;
+                    margin-bottom: 0.75rem;
+                    max-width: 520px;
+                }
+                .insights-section.compact .section-title {
+                    font-size: 1.2rem;
+                    margin-bottom: 0.5rem;
+                }
+                .insights-section.compact .insights-card {
+                    padding: 0.75rem;
+                }
+                .insights-section.compact .cosmic-button {
+                    padding: 10px 14px;
+                    font-size: 0.95rem;
+                }
+
+                /* Player Performance card matches section styling */
+                .player-performance-section {
+                    background: rgba(255, 255, 255, 0.02);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 16px;
+                    padding: clamp(1rem, 3vw, 1.5rem);
+                    margin-bottom: clamp(1.5rem, 3vw, 2rem);
+                    max-width: 576px;
+                    margin-left: auto;
+                    margin-right: auto;
+                    box-sizing: border-box;
+                }
                 
                 .section-title {
                     font-size: 1.3rem;
@@ -4098,6 +4428,83 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                     gap: 0.75rem;
                     padding: 0.5rem;
                 }
+
+                .performance-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: clamp(0.6rem, 2vw, 0.9rem);
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+
+                .performance-item {
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 12px;
+                    padding: clamp(0.75rem, 2vw, 1rem);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.25rem;
+                    transition: all 0.25s ease;
+                    box-sizing: border-box;
+                }
+
+                .performance-item:hover {
+                    background: rgba(255, 255, 255, 0.06);
+                    border-color: rgba(255, 255, 255, 0.2);
+                    transform: translateY(-2px);
+                }
+
+                .performance-icon {
+                    font-size: clamp(1rem, 3vw, 1.2rem);
+                }
+
+                .performance-value {
+                    font-size: clamp(1rem, 3vw, 1.25rem);
+                    font-weight: 600;
+                    color: #ffffff;
+                    line-height: 1;
+                }
+
+                .performance-label {
+                    font-size: clamp(0.7rem, 2vw, 0.85rem);
+                    color: #9CA3AF;
+                    letter-spacing: 0.3px;
+                    text-transform: uppercase;
+                }
+
+                .performance-item.accent-accuracy .performance-value {
+                    color: #22c55e;
+                }
+                /* Home Dash: scale Player Performance visuals down by ~50% */
+                .dashboard-container .player-performance-section {
+                    padding: clamp(0.5rem, 1.5vw, 0.75rem);
+                    margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
+                    max-width: 360px;
+                }
+                .dashboard-container .player-performance-section .section-title {
+                    font-size: 0.75rem;
+                    gap: 0.5rem;
+                }
+                .dashboard-container .performance-grid {
+                    gap: clamp(0.3rem, 1vw, 0.45rem);
+                }
+                .dashboard-container .performance-item {
+                    padding: clamp(0.375rem, 1vw, 0.5rem);
+                    border-radius: 10px;
+                    gap: 0.15rem;
+                }
+                .dashboard-container .performance-icon {
+                    font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+                }
+                .dashboard-container .performance-value {
+                    font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+                }
+                .dashboard-container .performance-label {
+                    font-size: clamp(0.35rem, 1vw, 0.45rem);
+                }
                 
                 .day-card {
                     aspect-ratio: 1;
@@ -4125,7 +4532,10 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                 
                 .streak-day {
                     border-radius: 8px;
-                    min-height: clamp(40px, 12vw, 60px);
+                    /* Slightly reduce tile size to prevent overlap on tight layouts */
+                    min-height: clamp(38px, 11vw, 56px);
+                    /* Global downscale for streak tiles */
+                    transform: scale(0.95);
                 }
                 
                 .streak-day.current-active {
@@ -4133,14 +4543,16 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                     border: 2px solid rgba(34, 197, 94, 0.4);
                     box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
                     animation: currentDayPulse 2s ease-in-out infinite;
-                    transform: scale(1.03);
+                    /* Keep a subtle emphasis without causing overlap */
+                    transform: scale(0.98);
                 }
                 
                 .streak-day.current-completed {
                     background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.25));
                     border: 2px solid rgba(34, 197, 94, 0.6);
                     box-shadow: 0 0 16px rgba(34, 197, 94, 0.3);
-                    transform: scale(1.03);
+                    /* Reduce scale to avoid overlapping neighboring tiles */
+                    transform: scale(0.98);
                 }
                 
                 .streak-day.future-locked {

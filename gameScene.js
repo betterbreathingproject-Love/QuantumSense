@@ -116,17 +116,7 @@ export class GameScene extends Phaser.Scene {
       this.uiManager = new UIManager(this, this.statsTracker, this.binauralGenerator);
       console.log('UIManager initialized');
 
-      // If flagged by LoginScene, auto-open the daily mood/journal input (via JournalBridge)
-      try {
-    const resumeOnLoad = localStorage.getItem('resumeGameOnLoad') === '1';
-    const shouldOpenJournal = !resumeOnLoad && localStorage.getItem('openJournalOnGameLoad') === 'true';
-    if (shouldOpenJournal) {
-      try { window.JournalBridge && window.JournalBridge.open(); } catch (_) {}
-      localStorage.removeItem('openJournalOnGameLoad');
-    }
-      } catch (e) {
-        console.warn('Failed to auto-open journal on start:', e);
-      }
+      // Removed old flag-based auto-open here; routing will occur after bottom menu is ready
       
       // Expose DailyCheckInManager for easy access
       this.dailyCheckInManager = this.uiManager.dailyCheckInManager;
@@ -144,6 +134,26 @@ export class GameScene extends Phaser.Scene {
         }
       });
       console.log('BottomMenuManager initialized');
+
+      // Expose managers globally so JournalBridge can route tabs
+      try {
+        window.bottomMenuManager = this.bottomMenuManager;
+        window.uiManager = this.uiManager;
+      } catch (_) {}
+
+      // On every app start for returning users, show the daily journal input with Skip option
+      try {
+        const resumeOnLoad = localStorage.getItem('resumeGameOnLoad') === '1';
+        const user = JSON.parse(localStorage.getItem('quantumsense-user-data') || '{}');
+        const isReturning = !!(user && (user.name || user.email));
+        if (!resumeOnLoad && isReturning) {
+          try { window.JournalBridge && window.JournalBridge.open(); } catch (_) {}
+        }
+        // Clear any legacy one-shot flag
+        localStorage.removeItem('openJournalOnGameLoad');
+      } catch (e) {
+        console.warn('Failed to open journal on start:', e);
+      }
       
       this.uiManager.menuManager.onProfileToggle = () => this.uiManager.toggleProfilePanel();
       this.uiManager.menuManager.onResetRequest = () => this.performReset();
@@ -227,6 +237,16 @@ export class GameScene extends Phaser.Scene {
     
     const tutorialSeen = localStorage.getItem('tutorialSeen') === 'true';
     if (!tutorialSeen) {
+      // Ensure Level 1 is prepared in the background for a seamless start after the tutorial
+      // This sets the active level and updates dice/portal visuals without starting gameplay
+      this.setActiveLevel(1);
+      // Ensure the gameplay (dice) scene is visible behind the tutorial
+      try {
+        // Hide any open bottom panels (e.g., Games page) so the dice scene remains the background
+        this.uiManager?.menuManager?.hideAll?.();
+        // Prevent any auto-open requests to switch to Games while the tutorial is showing
+        localStorage.removeItem('openTabOnLoad');
+      } catch (_) {}
       // Temporarily show all UI for the tutorial to highlight
       if (this.predictionSystem && this.predictionSystem.container) {
         this.predictionSystem.container.setVisible(true).setAlpha(1);
@@ -855,6 +875,8 @@ export class GameScene extends Phaser.Scene {
   showTutorial() {
     if (!this.tutorialManager) {
         this.tutorialManager = new TutorialManager(this, () => {
+            // Tutorial completed, allow tabs again and start gameplay
+            this.isTutorialActive = false;
             this.startNewRound();
         }, () => {
           return {
@@ -865,6 +887,15 @@ export class GameScene extends Phaser.Scene {
           };
         });
     }
+    // Mark tutorial active so UI managers can respect it
+    this.isTutorialActive = true;
+    // Make sure the dice/prediction UI is the background while the tutorial overlays on top
+    try {
+      this.predictionSystem?.container?.setVisible(true);
+      this.diceController?.resultContainer?.setVisible(true);
+      // Hide any bottom menu panels to avoid covering gameplay during tutorial
+      this.uiManager?.menuManager?.hideAll?.();
+    } catch (_) {}
     this.tutorialManager.start();
     if (this.tutorialManager.container) {
       this.tutorialManager.container.setDepth(5700); // Ensure tutorial is on top

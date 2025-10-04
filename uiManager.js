@@ -166,7 +166,6 @@ export class UIManager {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     
     button.on('pointerover', () => {
-      this.scene.playSound('button_hover_click');
       this.scene.tweens.add({ 
         targets: button, 
         scale: 1.05, 

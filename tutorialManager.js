@@ -336,7 +336,6 @@ export class TutorialManager {
     const container = this.scene.add.container(x, y, [buttonBG, buttonText]);
     container.setSize(textWidth, textHeight).setInteractive({ useHandCursor: true });
     container.on('pointerover', () => {
-        this.scene.playSound('button_hover_click');
         this.scene.tweens.add({ targets: container, scale: 1.05, duration: 200, ease: 'Sine.easeOut' });
     });
     

@@ -64,48 +64,124 @@ export class OnboardingManager {
 
         const avatarContainer = document.createElement('div');
         avatarContainer.className = 'ai-avatar-container';
+
+        // Read optional avatar configuration so we can support GIF/image as well as video
+        const cfg = {
+            src: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarSrc') : null),
+            type: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarType') : null),
+            size: (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('aiAvatarSize') || '120', 10) : 120),
+            shape: (typeof localStorage !== 'undefined' ? localStorage.getItem('aiAvatarShape') || 'circle' : 'circle')
+        };
         
-        const avatarVideo = document.createElement('video');
-        avatarVideo.className = 'ai-avatar-video';
-        // Prefer local asset to avoid external network issues, fallback to remote if needed
-        const localSrc = './QuantumSense%20Ai%20Journal-Add%20on%20/assets/89bb595c589a8797e525e7ae9b04253c.mp4';
-        const remoteSrc = 'https://play.rosebud.ai/assets/89bb595c589a8797e525e7ae9b04253c.mp4?i6LY';
-        avatarVideo.src = localSrc;
-        avatarVideo.autoplay = true;
-        avatarVideo.loop = true;
-        avatarVideo.muted = true;
-        avatarVideo.playsInline = true;
-        avatarVideo.preload = 'metadata';
-        // If local fails due to path or network, try remote
-        avatarVideo.addEventListener('error', () => {
-            try {
-                if (avatarVideo.src.includes('QuantumSense%20Ai%20Journal-Add%20on%20')) {
-                    avatarVideo.src = remoteSrc;
-                    avatarVideo.load();
-                    return;
-                }
-            } catch {}
-            console.warn('AI avatar video failed to load, showing fallback');
-            avatarContainer.innerHTML = `
-                <div class="avatar-fallback">
-                    <span class="cosmic-spark">🤖</span>
-                    <span class="avatar-fallback-text">AI Coach</span>
-                </div>
-            `;
-        });
-        
-        // Handle aborted fetches gracefully
-        avatarVideo.addEventListener('abort', () => {
-            console.warn('AI avatar video load aborted, using fallback');
-            avatarContainer.innerHTML = `
-                <div class="avatar-fallback">
-                    <span class="cosmic-spark">🤖</span>
-                    <span class="avatar-fallback-text">AI Coach</span>
-                </div>
-            `;
-        });
-        
-        avatarContainer.appendChild(avatarVideo);
+        // Default to the infinity GIF in the project root assets if no custom avatar is set
+        // Use an absolute path so it works whether this runs from the root index.html or the add-on index.html
+        const defaultInfinityPath = '/assets/infinity.gif';
+        try {
+            if (!cfg.src || cfg.src.trim() === '') {
+                cfg.src = defaultInfinityPath;
+                cfg.type = 'image';
+                // Persist for subsequent loads; safe to ignore errors
+                localStorage.setItem('aiAvatarSrc', cfg.src);
+                localStorage.setItem('aiAvatarType', 'image');
+            }
+        } catch {}
+        // Apply size/shape preferences to the container
+        try {
+            avatarContainer.style.width = `${cfg.size}px`;
+            avatarContainer.style.height = `${cfg.size}px`;
+            if (cfg.shape === 'rounded') {
+                avatarContainer.style.borderRadius = '16px';
+            } else {
+                avatarContainer.style.borderRadius = '50%';
+            }
+        } catch {}
+
+        const isImageSrc = cfg.src && (/\.(gif|png|jpg|jpeg|svg)$/i.test(cfg.src) || (cfg.type || '').toLowerCase() === 'image');
+        if (isImageSrc && cfg.src) {
+            const img = new Image();
+            img.className = 'ai-avatar-image';
+            img.src = cfg.src;
+            img.onload = () => {
+                // Image loaded successfully; nothing else required
+            };
+            img.onerror = () => {
+                console.warn('AI avatar image failed to load, falling back to video asset');
+                avatarContainer.innerHTML = '';
+                const fallbackVideo = document.createElement('video');
+                fallbackVideo.className = 'ai-avatar-video';
+                const localSrc = './QuantumSense%20Ai%20Journal-Add%20on%20/assets/89bb595c589a8797e525e7ae9b04253c.mp4';
+                const remoteSrc = 'https://play.rosebud.ai/assets/89bb595c589a8797e525e7ae9b04253c.mp4?i6LY';
+                fallbackVideo.src = localSrc;
+                fallbackVideo.autoplay = true;
+                fallbackVideo.loop = true;
+                fallbackVideo.muted = true;
+                fallbackVideo.playsInline = true;
+                fallbackVideo.preload = 'metadata';
+                fallbackVideo.addEventListener('error', () => {
+                    try {
+                        if (fallbackVideo.src.includes('QuantumSense%20Ai%20Journal-Add%20on%20')) {
+                            fallbackVideo.src = remoteSrc;
+                            fallbackVideo.load();
+                            return;
+                        }
+                    } catch {}
+                    avatarContainer.innerHTML = `
+                        <div class="avatar-fallback">
+                            <span class="cosmic-spark">🤖</span>
+                            <span class="avatar-fallback-text">AI Coach</span>
+                        </div>
+                    `;
+                });
+                fallbackVideo.addEventListener('abort', () => {
+                    avatarContainer.innerHTML = `
+                        <div class="avatar-fallback">
+                            <span class="cosmic-spark">🤖</span>
+                            <span class="avatar-fallback-text">AI Coach</span>
+                        </div>
+                    `;
+                });
+                avatarContainer.appendChild(fallbackVideo);
+            };
+            avatarContainer.appendChild(img);
+        } else {
+            // Default: use existing video avatar with robust fallback
+            const avatarVideo = document.createElement('video');
+            avatarVideo.className = 'ai-avatar-video';
+            const localSrc = './QuantumSense%20Ai%20Journal-Add%20on%20/assets/89bb595c589a8797e525e7ae9b04253c.mp4';
+            const remoteSrc = 'https://play.rosebud.ai/assets/89bb595c589a8797e525e7ae9b04253c.mp4?i6LY';
+            avatarVideo.src = localSrc;
+            avatarVideo.autoplay = true;
+            avatarVideo.loop = true;
+            avatarVideo.muted = true;
+            avatarVideo.playsInline = true;
+            avatarVideo.preload = 'metadata';
+            avatarVideo.addEventListener('error', () => {
+                try {
+                    if (avatarVideo.src.includes('QuantumSense%20Ai%20Journal-Add%20on%20')) {
+                        avatarVideo.src = remoteSrc;
+                        avatarVideo.load();
+                        return;
+                    }
+                } catch {}
+                console.warn('AI avatar video failed to load, showing fallback');
+                avatarContainer.innerHTML = `
+                    <div class="avatar-fallback">
+                        <span class="cosmic-spark">🤖</span>
+                        <span class="avatar-fallback-text">AI Coach</span>
+                    </div>
+                `;
+            });
+            avatarVideo.addEventListener('abort', () => {
+                console.warn('AI avatar video load aborted, using fallback');
+                avatarContainer.innerHTML = `
+                    <div class="avatar-fallback">
+                        <span class="cosmic-spark">🤖</span>
+                        <span class="avatar-fallback-text">AI Coach</span>
+                    </div>
+                `;
+            });
+            avatarContainer.appendChild(avatarVideo);
+        }
         content.appendChild(avatarContainer);
         const title = document.createElement('h1');
         title.className = 'welcome-title';
@@ -400,6 +476,7 @@ export class OnboardingManager {
                     position: relative;
                     overflow-y: auto; /* allow scrolling so buttons are not clipped */
                     box-sizing: border-box;
+                    background-color: #000; /* Ensure solid black background to avoid transparency */
                 }
 
                 .cosmic-background {
@@ -420,16 +497,18 @@ export class OnboardingManager {
                 }
 
                 .onboarding-content {
-                    background: rgba(255, 255, 255, 0.02);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    /* Solid, high-contrast card to ensure text is always readable */
+                    background: #000000;
+                    border: 1px solid #222222;
                     border-radius: 20px;
                     padding: 2.5rem 1.75rem;
                     max-width: 560px;
                     width: 100%;
                     text-align: center;
                     position: relative;
-                    backdrop-filter: blur(10px);
-                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                    backdrop-filter: none;
+                    -webkit-backdrop-filter: none;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
                 }
                 .ai-avatar-container {
                     width: 200px;
@@ -447,8 +526,18 @@ export class OnboardingManager {
                     height: 100%;
                     object-fit: cover;
                     object-position: center;
-                    transform: scale(1.2);
+                    transform: scale(1.15);
                     filter: brightness(1.1) contrast(1.1);
+                }
+                /* Make the GIF/image slightly smaller so it fits comfortably inside the circle */
+                .ai-avatar-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain; /* prevent cropping */
+                    object-position: center;
+                    transform: scale(0.9); /* reduce size within the circle */
+                    background: #000; /* fill any letterbox area with dark bg */
+                    filter: brightness(1.05) contrast(1.1);
                 }
                 .avatar-fallback {
                     width: 100%;
@@ -475,11 +564,12 @@ export class OnboardingManager {
                 }
                 .welcome-message {
                     font-size: 1.1rem;
-                    color: #cccccc;
-                    line-height: 1.6;
+                    color: #e6e6e6; /* brighter text for readability */
+                    line-height: 1.7;
                     margin-bottom: 2rem;
-                    font-weight: 300;
+                    font-weight: 400;
                     text-align: center;
+                    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
                 }
                 .welcome-title {
                     font-size: 2.5rem;
@@ -508,20 +598,29 @@ export class OnboardingManager {
                     align-items: center;
                     gap: 1rem;
                     padding: 1rem;
-                    background: rgba(255, 255, 255, 0.03);
+                    background: #0d0d0d; /* opaque tile for clearer text */
                     border-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid #222222;
                     transition: all 0.3s ease;
+                    color: #ffffff; /* Ensure tile text is white for readability */
                 }
 
                 .feature-item:hover {
-                    background: rgba(255, 255, 255, 0.06);
-                    border-color: rgba(255, 255, 255, 0.1);
+                    background: #151515;
+                    border-color: #2e2e2e;
                     transform: translateY(-2px);
                 }
 
                 .feature-icon {
                     font-size: 1.5rem;
+                }
+
+                /* Ensure inner text nodes render white inside tiles */
+                .feature-item span,
+                .feature-item p,
+                .feature-item div,
+                .feature-item .feature-title {
+                    color: #ffffff;
                 }
 
                 .cosmic-button {
@@ -818,9 +917,8 @@ export class OnboardingManager {
                         height: 120px;
                     }
                     
-                    .ai-avatar-video {
-                        transform: scale(1.3);
-                    }
+                    .ai-avatar-video { transform: scale(1.25); }
+                    .ai-avatar-image { transform: scale(0.85); }
                     
                     .welcome-message {
                         font-size: 0.95rem;
