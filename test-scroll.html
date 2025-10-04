@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scroll - Quantum Sense</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "phaser": "https://esm.sh/phaser@3.70.0",
+          "phaser/": "https://esm.sh/phaser@3.70.0/"
+        }
+      }
+    </script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
+        background: linear-gradient(135deg, #1a0033, #330066, #660099);
+        font-family: 'Arial', sans-serif;
+      }
+    </style>
+</head>
+<body>
+    <div id="phaser-game-container"></div>
+    
+    <script type="module">
+        import Phaser from 'phaser';
+        import { MyStatsScene } from './MyStatsScene.js';
+        
+        // Set up localStorage with test data
+        const userData = {
+            name: 'Test User',
+            email: 'test@example.com',
+            level: 1,
+            stats: {
+                totalSessions: 10,
+                averageAccuracy: 75,
+                bestStreak: 5
+            }
+        };
+        localStorage.setItem('quantumsense-user-data', JSON.stringify(userData));
+        localStorage.setItem('resumeGameOnLoad', 'true');
+        
+        // Create minimal game config just for testing MyStatsScene
+        const config = {
+            type: Phaser.AUTO,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                parent: 'phaser-game-container',
+                width: 576,
+                height: 1024,
+                max: { width: 576, height: 1024 }
+            },
+            scene: [MyStatsScene],
+            backgroundColor: '#1a0033'
+        };
+        
+        const game = new Phaser.Game(config);
+        window.game = game;
+        
+        // Wait for game to initialize and start the scene with proper data
+        game.events.once('ready', () => {
+            console.log('Game ready, starting MyStatsScene with data...');
+            
+            // Create mock stats tracker data
+            const mockStatsTracker = {
+                level: 4,
+                bestStreak: 5,
+                shields: 0,
+                totalPredictions: 150,
+                correctPredictions: 95,
+                accuracy: 63.3,
+                coherenceScore: 0.75,
+                recentPredictions: [
+                    { date: '2025-01-01', correct: true, confidence: 0.8 },
+                    { date: '2025-01-02', correct: false, confidence: 0.6 },
+                    { date: '2025-01-03', correct: true, confidence: 0.9 }
+                ],
+                weeklyTrend: [0.6, 0.65, 0.7, 0.68, 0.72, 0.75, 0.73],
+                achievements: [
+                    { id: 'first_prediction', name: 'First Steps', description: 'Made your first prediction', unlocked: true },
+                    { id: 'streak_5', name: 'Hot Streak', description: 'Achieved a 5-day streak', unlocked: true },
+                    { id: 'accuracy_70', name: 'Sharp Eye', description: 'Reached 70% accuracy', unlocked: false }
+                ]
+            };
+
+            // Start the scene with proper initialization data
+            game.scene.start('MyStatsScene', {
+                statsTracker: mockStatsTracker,
+                returnScene: 'GameScene'
+            });
+        });
+    </script>
+</body>
+</html>

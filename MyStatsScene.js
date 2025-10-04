@@ -1,3 +1,5 @@
+import { WheelEventManager } from './WheelEventManager.js';
+
 export class MyStatsScene extends Phaser.Scene {
   constructor() {
     super({ key: 'MyStatsScene' });
@@ -78,6 +80,10 @@ export class MyStatsScene extends Phaser.Scene {
 
     // Create scrollable container
     this.scrollContainer = this.add.container(0, 0);
+    // Ensure a dedicated wheel event manager exists for this scene
+    if (!this.wheelEventManager) {
+      this.wheelEventManager = new WheelEventManager(this);
+    }
     
     // Track content elements for height calculation
     this.contentElements = [];
@@ -152,7 +158,13 @@ export class MyStatsScene extends Phaser.Scene {
     const computedHeight = this.getScrollContentHeight();
     this.contentHeight = Math.max(computedHeight, 1200);
 
-    console.log('Calculated content height (dynamic):', this.contentHeight);
+    console.log('=== Content Height Calculation ===');
+    console.log('Computed height from children:', computedHeight);
+    console.log('Final content height (min 1200):', this.contentHeight);
+    console.log('ScrollContainer children count:', this.scrollContainer?.list?.length || 0);
+    
+    // Force re-setup scrolling after content height calculation
+    this._scrollSetup = false;
   }
 
 
@@ -360,8 +372,11 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
       fontStyle: 'bold'
     }).setOrigin(0.5);
     
-    // Get current stats
-    const stats = this.statsTracker.getStats();
+    // Get current stats (support plain object or StatsTracker instance)
+    const rawProfileStats = this.statsTracker;
+    const stats = (rawProfileStats && typeof rawProfileStats.getStats === 'function')
+      ? rawProfileStats.getStats()
+      : (rawProfileStats || {});
     const level = stats.psychicLevel || 1;
     const power = stats.divinePower || 0;
     
@@ -419,8 +434,11 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
     const overviewBounds = overviewExplainer.getBounds();
     const cardsStartY = Math.max(startY + 50, overviewBounds.bottom + 20);
     
-    // Get stats
-    const stats = this.statsTracker.getStats();
+    // Get stats (support plain object or StatsTracker instance)
+    const rawStats = this.statsTracker;
+    const stats = (rawStats && typeof rawStats.getStats === 'function')
+      ? rawStats.getStats()
+      : (rawStats || {});
     
     // Create stat cards
     const statCards = [
@@ -700,8 +718,11 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
     const coherenceBounds = coherenceExplainer.getBounds();
     const cardsBaseY = Math.max(startY + this.SPACING.TITLE_OFFSET, coherenceBounds.bottom + 20);
     
-    // Get real coherence data from statsTracker
-    const stats = this.statsTracker?.getStats() || {};
+    // Get real coherence data from statsTracker (support plain object or StatsTracker instance)
+    const rawCoherenceStats = this.statsTracker;
+    const stats = (rawCoherenceStats && typeof rawCoherenceStats.getStats === 'function')
+      ? rawCoherenceStats.getStats()
+      : (rawCoherenceStats || {});
     const totalCoherenceTime = stats.totalCoherenceTime || 0;
     const dailyCoherenceTime = stats.dailyCoherenceTime || 0;
     const breathingSessionsCompleted = stats.breathingSessionsCompleted || 0;
@@ -866,8 +887,11 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
       fontStyle: 'italic'
     }).setOrigin(0.5);
     
-    // Get real stats from statsTracker
-    const stats = this.statsTracker?.getStats() || {};
+    // Get real stats from statsTracker (support plain object or StatsTracker instance)
+    const rawBoostStats = this.statsTracker;
+    const stats = (rawBoostStats && typeof rawBoostStats.getStats === 'function')
+      ? rawBoostStats.getStats()
+      : (rawBoostStats || {});
     const totalCoherenceTime = stats.totalCoherenceTime || 0;
     const breathingSessionsCompleted = stats.breathingSessionsCompleted || 0;
     
@@ -989,12 +1013,31 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
     this.scrollContainer.add(svsExplainer);
     const svsBounds = svsExplainer.getBounds();
     
-    // Get real mode comparison data from statsTracker
-    const modeComparison = this.statsTracker?.getModeComparison() || {
-      sense: { accuracy: 0, pValue: 1.0, totalRolls: 0, bestStreak: 0, performance: 'Beginner' },
-      influence: { accuracy: 0, pValue: 1.0, totalRolls: 0, bestStreak: 0, performance: 'Beginner' },
-      recommendation: 'Practice both modes to discover your strengths'
-    };
+    // Get mode comparison data (support plain object or StatsTracker instance)
+    let modeComparison;
+    const raw = this.statsTracker;
+    if (raw && typeof raw.getModeComparison === 'function') {
+      modeComparison = raw.getModeComparison();
+    } else {
+      const s = (raw && typeof raw.getStats === 'function') ? raw.getStats() : (raw || {});
+      modeComparison = {
+        sense: {
+          accuracy: Number(s.senseAccuracy ?? s.accuracy ?? 0),
+          pValue: Number(s.sensePValue ?? s.pValue ?? 1.0),
+          totalRolls: Number(s.senseRolls ?? s.totalRolls ?? 0),
+          bestStreak: Number(s.senseStreak ?? s.bestStreak ?? 0),
+          performance: s.sensePerformance || 'Beginner'
+        },
+        influence: {
+          accuracy: Number(s.influenceAccuracy ?? s.accuracy ?? 0),
+          pValue: Number(s.influencePValue ?? s.pValue ?? 1.0),
+          totalRolls: Number(s.influenceRolls ?? s.totalRolls ?? 0),
+          bestStreak: Number(s.influenceStreak ?? s.bestStreak ?? 0),
+          performance: s.influencePerformance || 'Beginner'
+        },
+        recommendation: s.modeRecommendation || 'Practice both modes to discover your strengths'
+      };
+    }
     
     // Create comparison chart background anchored below explainer
     const chartTopY = Math.max(startY + 50, svsBounds.bottom + 20);
@@ -1502,11 +1545,23 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
     console.log('Visible height:', visibleHeight);
     console.log('Content height:', contentHeight);
     console.log('Should scroll:', contentHeight > visibleHeight);
+    console.log('ScrollContainer exists:', !!this.scrollContainer);
+    console.log('ScrollContainer children:', this.scrollContainer?.list?.length || 0);
 
-    // Prevent duplicate setup
+    // Reset scroll setup flag to allow re-setup if needed
     if (this._scrollSetup) {
-      console.log('Scroll already setup, skipping');
-      return;
+      console.log('Scroll already setup, cleaning up first...');
+      // Clean up existing handlers
+      if (this._inputWheelRegistered && this.statsScrollHandler) {
+        this.input.off('wheel', this.statsScrollHandler);
+        this._inputWheelRegistered = false;
+      }
+      const canvas = this.sys?.game?.canvas;
+      if (canvas && this._canvasWheelRegistered && this._canvasWheelHandler) {
+        canvas.removeEventListener('wheel', this._canvasWheelHandler);
+        this._canvasWheelRegistered = false;
+        this._canvasWheelHandler = null;
+      }
     }
     this._scrollSetup = true;
 
@@ -1549,12 +1604,14 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
         if (isDragging) {
           const deltaY = pointer.y - startY;
           const newY = startContainerY + deltaY;
-          const minY = -(contentHeight - visibleHeight);
+          // Use the calculated content height for consistent bounds
+          const totalHeight = this.contentHeight || this.getScrollContentHeight();
+          const minY = -(totalHeight - visibleHeight);
           const maxY = 0;
 
           const clampedY = Phaser.Math.Clamp(newY, minY, maxY);
           this.scrollContainer.setY(clampedY);
-          console.log('Dragging - newY:', clampedY);
+          console.log('Dragging - newY:', clampedY, 'bounds:', minY, 'to', maxY);
         }
       });
 
@@ -1563,8 +1620,7 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
         isDragging = false;
       });
 
-      // Mouse wheel support — bind directly to this scene's input so it works
-      // even when MyStatsScene is the top-most active scene.
+      // Mouse wheel support — route through WheelEventManager for consistency
       this.statsScrollHandler = (pointer, gameObjects, deltaX, deltaY) => {
         console.log('Wheel scroll - deltaY:', deltaY);
         // Prevent the browser/page from scrolling instead of our canvas
@@ -1574,48 +1630,21 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
         } catch (_) {}
         const scrollSpeed = 50; // significantly faster wheel scrolling for better feel
         const currentY = this.scrollContainer.y;
-        // Use a STABLE total content height so bounds don't shrink while scrolling
-        const totalHeight = this.contentHeight || (this.getScrollContentHeight() - this.scrollContainer.y);
+        // Use the calculated content height
+        const totalHeight = this.contentHeight || this.getScrollContentHeight();
         const minY = -(totalHeight - visibleHeight);
         const maxY = 0;
         // Always respond to wheel events (consistent with Game/Leaderboard pages)
 
         const newY = Phaser.Math.Clamp(currentY - (deltaY * scrollSpeed / 100), minY, maxY);
         this.scrollContainer.setY(newY);
-        console.log('Wheel scroll - newY:', newY);
+        console.log('Wheel scroll - newY:', newY, 'bounds:', minY, 'to', maxY);
       };
-
-      // Always register wheel handler directly on this scene to ensure reliability
-      // regardless of centralized managers bound to other scenes.
-      if (this._inputWheelRegistered && this.statsScrollHandler) {
-        this.input.off('wheel', this.statsScrollHandler);
-      }
-      this.input.on('wheel', this.statsScrollHandler);
-      this._inputWheelRegistered = true;
-
-      // Fallback: attach wheel listener directly to the game canvas to catch all wheel events
-      const canvas = this.sys?.game?.canvas;
-      if (canvas) {
-        if (this._canvasWheelRegistered && this._canvasWheelHandler) {
-          canvas.removeEventListener('wheel', this._canvasWheelHandler);
-        }
-        this._canvasWheelHandler = (e) => {
-          try {
-            e.preventDefault();
-            e.stopPropagation();
-          } catch (_) {}
-          const deltaY = e.deltaY || 0;
-          const scrollSpeed = 50;
-          const currentY = this.scrollContainer.y;
-          // Use the same STABLE total content height strategy here
-          const totalHeight = this.contentHeight || (this.getScrollContentHeight() - this.scrollContainer.y);
-          const minY = -(totalHeight - visibleHeight);
-          const maxY = 0;
-          const newY = Phaser.Math.Clamp(currentY - (deltaY * scrollSpeed / 100), minY, maxY);
-          this.scrollContainer.setY(newY);
-        };
-        canvas.addEventListener('wheel', this._canvasWheelHandler, { passive: false });
-        this._canvasWheelRegistered = true;
+      
+      // Register with the scene's WheelEventManager to avoid conflicts
+      if (this.wheelEventManager) {
+        this.wheelEventManager.unregisterHandler('statsScroll');
+        this.wheelEventManager.registerHandler('statsScroll', this.statsScrollHandler, this);
       }
       
       console.log('Scrolling setup complete');
@@ -1625,17 +1654,10 @@ Your stats reveal the subtle weave of your signal: where attention aligns, where
   }
   
   destroy() {
-    // Unregister wheel handler when scene is destroyed
-    if (this._inputWheelRegistered && this.statsScrollHandler) {
-      this.input.off('wheel', this.statsScrollHandler);
-      this._inputWheelRegistered = false;
-    }
-    // Remove canvas wheel fallback
-    const canvas = this.sys?.game?.canvas;
-    if (canvas && this._canvasWheelRegistered && this._canvasWheelHandler) {
-      canvas.removeEventListener('wheel', this._canvasWheelHandler);
-      this._canvasWheelRegistered = false;
-      this._canvasWheelHandler = null;
+    // Unregister wheel handler via WheelEventManager
+    if (this.wheelEventManager) {
+      this.wheelEventManager.unregisterHandler('statsScroll');
+      this.wheelEventManager.removeMasterHandler();
     }
     super.destroy();
   }

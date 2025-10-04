@@ -21,6 +21,241 @@ class EmptyHomePanel {
   destroy() {}
 }
 
+// Embedded onboarding dash panel: mounts the Quantum Sense AI Journal onboarding flow
+// inside the game area (same dimensions as the Phaser canvas), preserving the bottom menu.
+class OnboardingDashPanel {
+  constructor(scene) {
+    this.scene = scene;
+    this.visible = false;
+    this.mountEl = null;
+    this.manager = null; // legacy onboarding manager (not used when JournalApp is embedded)
+    this.chat = null;    // legacy ChatAI (no longer used for AI Dash)
+    this.journalApp = null; // preferred embedded Journal dashboard/app
+    this._onResize = this.updateLayout.bind(this);
+    this._ensureMount();
+  }
+
+  async _ensureMount() {
+    try {
+      // Mount directly inside the Phaser game container to avoid sizing mismatches
+      const parent = document.getElementById('phaser-game-container') || document.body;
+      if (!this.mountEl) {
+        this.mountEl = document.createElement('div');
+        this.mountEl.id = 'onboarding-embedded';
+        this.mountEl.style.cssText = `
+          position: absolute;
+          left: 0; top: 0; width: 100%; height: 100%;
+          display: none;
+          /* Allow canvas/menu to receive clicks outside the content area */
+          pointer-events: none;
+          z-index: 15000; /* raise above DOM badges/tooltips */
+          /* Transparent root so the menu area is NOT visually dimmed */
+          background: transparent;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          overscroll-behavior: contain;
+        `;
+        // Ensure parent can properly position absolute children
+        try { if (parent && getComputedStyle(parent).position === 'static') parent.style.position = 'relative'; } catch {}
+        parent.appendChild(this.mountEl);
+
+        // Prevent duplicate #journalInterface from index.html from stealing focus
+        const globalJI = document.getElementById('journalInterface');
+        if (globalJI && globalJI !== this.mountEl && !this.mountEl.contains(globalJI)) {
+          globalJI.id = 'journalInterface-global';
+          globalJI.style.display = 'none';
+        }
+
+        // Override onboarding CSS to fit within the embedded region (match canvas size)
+        if (!document.getElementById('embeddedOnboardingStyles')) {
+          const styles = document.createElement('style');
+          styles.id = 'embeddedOnboardingStyles';
+          styles.textContent = `
+            #onboarding-embedded { cursor: default; }
+            /* Make embedded root fill container but leave space for the bottom menu */
+            #onboarding-embedded .embedded-journal-root { position: absolute; left:0; right:0; top:0; bottom:100px; overflow: auto; pointer-events: auto; background: transparent; }
+            /* Ensure the Journal content starts at the very top; avoid vertical centering */
+            #onboarding-embedded #journalInterface { position: absolute; inset: 0; display: flex; align-items: flex-start !important; justify-content: center !important; pointer-events: auto; }
+            #onboarding-embedded #journalInterface > * { margin-top: 0 !important; }
+            /* Keep onboarding width comfortable if fallback is used */
+            #onboarding-embedded .onboarding-container { min-height: 100% !important; height: 100% !important; padding: 0.25rem 0.5rem !important; box-sizing: border-box !important; }
+            #onboarding-embedded .onboarding-content { max-width: 560px !important; width: 100% !important; margin: 0 auto !important; margin-top: 0 !important; max-height: calc(100% - 8px) !important; overflow: auto !important; padding: 0.75rem !important; box-sizing: border-box !important; }
+            /* Compact scaling for shorter canvases */
+            #onboarding-embedded .ai-avatar-container { width: 140px !important; height: 140px !important; margin-bottom: 1rem !important; }
+            #onboarding-embedded .welcome-title { font-size: 2rem !important; }
+            #onboarding-embedded .welcome-message { font-size: 1rem !important; }
+            #onboarding-embedded .cosmic-button { font-size: 0.95rem !important; padding: 0.6rem 0.9rem !important; }
+          `;
+          document.head.appendChild(styles);
+        }
+
+        // Allow events to propagate normally so buttons inside the overlay remain clickable.
+        // Keep layout in sync with canvas size
+        try { window.addEventListener('resize', this._onResize, { passive: true }); } catch {}
+        // Initial layout after mount
+        this.updateLayout();
+      }
+    } catch (e) {
+      console.warn('OnboardingDashPanel: failed to create mount element', e);
+    }
+  }
+
+  updateLayout() {
+    try {
+      if (!this.mountEl) return;
+      // Position overlay to exactly cover the Phaser canvas bounds
+      const canvas = (this.scene && this.scene.sys && this.scene.sys.game && this.scene.sys.game.canvas) || document.querySelector('#phaser-game-container canvas');
+      const parent = this.mountEl.parentElement || document.getElementById('phaser-game-container') || document.body;
+      if (!canvas || !parent) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+
+      const left = Math.max(0, canvasRect.left - parentRect.left);
+      const top = Math.max(0, canvasRect.top - parentRect.top);
+      const width = Math.max(0, canvasRect.width);
+      const height = Math.max(0, canvasRect.height);
+
+      this.mountEl.style.left = `${left}px`;
+      this.mountEl.style.top = `${top}px`;
+      this.mountEl.style.width = `${width}px`;
+      this.mountEl.style.height = `${height}px`;
+      this.mountEl.style.borderRadius = getComputedStyle(canvas).borderRadius || '0px';
+
+      // Ensure the onboarding content's top is visible and scale down if canvas height is short
+      try {
+        const contentEl = this.mountEl.querySelector('.onboarding-content');
+        const containerEl = this.mountEl.querySelector('.onboarding-container');
+        if (containerEl) {
+          containerEl.scrollTop = 0; // always start at top
+          containerEl.style.overscrollBehavior = 'contain';
+        }
+        if (contentEl) {
+          const BASE_H = 720; // designed height for comfortable layout
+          const scale = Math.min(1, Math.max(0.8, height / BASE_H));
+          if (scale < 1) {
+            contentEl.style.transformOrigin = 'top center';
+            contentEl.style.transform = `scale(${scale})`;
+          } else {
+            contentEl.style.transform = '';
+          }
+        }
+      } catch {}
+    } catch (e) {
+      console.warn('OnboardingDashPanel: updateLayout failed', e);
+    }
+  }
+
+  async show() {
+    this.visible = true;
+    await this._ensureMount();
+    this.updateLayout();
+
+    if (this.mountEl) {
+      this.mountEl.style.display = 'block';
+      // Make sure the overlay starts at the top and is fully visible
+      try {
+        this.mountEl.scrollTop = 0;
+        const root = this.mountEl.querySelector('.embedded-journal-root');
+        if (root) root.scrollTop = 0;
+        const container = this.mountEl.querySelector('.onboarding-container');
+        if (container) container.scrollTop = 0;
+      } catch {}
+    }
+
+    // Preferred behavior: embed the existing JournalApp dashboard (AI Dash)
+    // JournalApp internally decides whether to show onboarding or the dashboard
+    try {
+      await this._renderJournalApp();
+    } catch (e) {
+      console.warn('OnboardingDashPanel: failed to render JournalApp, falling back to onboarding', e);
+      // Fallback to onboarding if JournalApp fails
+      try {
+        const mod = await import('components/OnboardingManager.js');
+        const onComplete = () => { try { localStorage.setItem('quantumsense-onboarding-complete', 'true'); } catch {}; this._renderJournalApp(); };
+        this.manager = new mod.OnboardingManager(this.mountEl, onComplete);
+      } catch (err) {
+        console.warn('OnboardingDashPanel: onboarding fallback also failed', err);
+      }
+    }
+
+    window.addEventListener('resize', this._onResize);
+  }
+
+  hide() {
+    this.visible = false;
+    if (this.mountEl) {
+      this.mountEl.style.display = 'none';
+    }
+    window.removeEventListener('resize', this._onResize);
+  }
+
+  _loadUser() {
+    try {
+      return JSON.parse(localStorage.getItem('quantumsense-user-data') || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  _isOnboardingComplete(user) {
+    try {
+      const flag = localStorage.getItem('quantumsense-onboarding-complete');
+      if (flag === 'true') return true;
+    } catch {}
+    return !!(user && user.hasCompletedOnboarding);
+  }
+
+  async _renderJournalApp() {
+    if (!this.mountEl) return;
+    // Clear any existing content
+    this.mountEl.innerHTML = '';
+
+    // Backdrop to fully block game scene under the embedded area while preserving bottom menu
+    const bgOverlay = document.createElement('div');
+    // Extend backdrop further (20px below content) so it meets the purple divider line above the bottom menu
+    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:80px; background:#000; pointer-events:none; z-index:0;';
+    this.mountEl.appendChild(bgOverlay);
+
+    // Create required containers for JournalApp
+    const root = document.createElement('div');
+    root.className = 'embedded-journal-root';
+    // Leave bottom 100px clear for the Phaser bottom menu and allow inner content to capture input
+    // Root remains transparent; black backdrop above ensures no bleed-through
+    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; overflow:auto; pointer-events:auto; background: transparent; z-index:1;';
+
+    // Remove optional header in embedded mode to ensure the true dashboard top is visible
+
+    const journalInterface = document.createElement('div');
+    journalInterface.id = 'journalInterface';
+    root.appendChild(journalInterface);
+
+    const calendarContainer = document.createElement('div');
+    calendarContainer.id = 'calendarContainer';
+    calendarContainer.style.display = 'none';
+    root.appendChild(calendarContainer);
+
+    this.mountEl.appendChild(root);
+
+    // Load and initialize JournalApp (it will show onboarding or the dashboard as needed)
+    const mod = await import('components/JournalApp.js');
+    this.journalApp = new mod.JournalApp();
+  }
+
+  isVisible() { return this.visible; }
+
+  destroy() {
+    try {
+      window.removeEventListener('resize', this._onResize);
+      if (this.mountEl && this.mountEl.parentNode) {
+        this.mountEl.parentNode.removeChild(this.mountEl);
+      }
+    } catch {}
+    this.mountEl = null;
+    this.manager = null;
+    this.scene = null;
+  }
+}
+
 class JournalBridgePanel {
   constructor(scene) {
     this.scene = scene;
@@ -61,6 +296,27 @@ export class BottomMenuManager {
       }
     };
     window.addEventListener('resize', this._onResize);
+
+    // Handle JournalApp CTA: start gameplay directly when user clicks "Play in the Quantum Field"
+    try {
+      window.addEventListener('quantum-field-play', (evt) => {
+        const desiredLevel = parseInt((evt?.detail?.level) || (localStorage.getItem('lastPlayedLevel') || '1'), 10);
+        const stats = this.statsTracker?.getStats?.() || {};
+        const levelToSet = stats.psychicLevel ? Math.max(1, Math.min(desiredLevel, stats.psychicLevel)) : Math.max(1, desiredLevel);
+
+        // Activate Games tab so user lands on the gameplay view
+        try { this.switchTab('games'); } catch {}
+
+        // Close any journal overlay if open
+        try { this.homePanel?.journalBridgePanel?.hide?.(); } catch {}
+        try { window.JournalBridge?.close?.(); } catch {}
+        try { this.onboardingPanel?.hide?.(); } catch {}
+
+        // Route to level and start
+        try { this.scene?.setActiveLevel?.(levelToSet); } catch {}
+        try { this.scene?.startNewRound?.(); } catch {}
+      });
+    } catch {}
 
     scene.events.on('shutdown', this.destroy, this);
     scene.events.on('destroy', this.destroy, this);
@@ -112,11 +368,14 @@ export class BottomMenuManager {
 
     const tabWidth = width / 4;
     this.tabs = {};
-    this.tabs.home    = this.createTab('home',    '🏠', 'Home',    tabWidth * 0.5, () => this.switchTab('home'));
-    this.tabs.games   = this.createTab('games',   '🎮', 'Games',   tabWidth * 1.5, () => this.switchTab('games'));
-    // Disable Journal interactions for now (no-op callback)
-    this.tabs.journal = this.createTab('journal', '📔', 'Journal', tabWidth * 2.5, () => {});
-    this.tabs.stats   = this.createTab('stats',   '📊', 'Leaderboard',   tabWidth * 3.5, () => this.switchTab('stats'));
+    // Left-most
+    this.tabs.home    = this.createTab('home',    '🏠', 'Home',            tabWidth * 0.5, () => this.switchTab('home'));
+    // Left-center
+    this.tabs.games   = this.createTab('games',   '🎮', 'Games',           tabWidth * 1.5, () => this.switchTab('games'));
+    // Center button: Infinity AI (opens Phaser-native JournalPanel)
+    this.tabs.journal = this.createTab('journal', '♾️', 'Infinity AI',     width / 2,      () => this.switchTab('journal'));
+    // Right-most
+    this.tabs.stats   = this.createTab('stats',   '📊', 'Leaderboard',     tabWidth * 3.5, () => this.switchTab('stats'));
 
     this.menuContainer.add([menuBg, ...Object.values(this.tabs)]);
     this.updateTabStates();
@@ -166,13 +425,17 @@ export class BottomMenuManager {
   }
 
   createPanels() {
-    // Replace legacy Home and Journal panels with lightweight wrappers
-    this.homePanel    = new EmptyHomePanel(this.scene);
+    // Home tab hosts the embedded onboarding dash with AI assistant (preserve existing onboarding flow)
+    this.homePanel    = new OnboardingDashPanel(this.scene);
     this.gamesPanel   = new GamesPanel(this.scene, this.statsTracker);
-    this.journalPanel = new JournalBridgePanel(this.scene);
+    // Use Phaser-native JournalPanel for Approach A (no DOM overlay)
+    this.journalPanel = new JournalPanel(this.scene, this.statsTracker);
     this.globalTrendsPanel = new GlobalTrendsPanel(this.scene, this.statsTracker); // Replaced StatsPanel with GlobalTrendsPanel
 
-    this.switchTab('home');
+    // Open preferred tab on load if specified (e.g., set by JournalApp "Play" CTA)
+    const initialTab = (typeof localStorage !== 'undefined' && localStorage.getItem('openTabOnLoad')) || 'home';
+    try { localStorage.removeItem('openTabOnLoad'); } catch {}
+    this.switchTab(initialTab);
   }
 
   switchTab(tabId) {
@@ -3429,8 +3692,9 @@ class GamesPanel {
 
   setupScrolling() {
     const { height } = this.scene.sys.game.config;
-    const visibleHeight = height - this.safeBottomPadding;
-    const contentHeight = this.totalContentHeight;
+    const safePad = this.safeBottomPadding || 100;
+    const visibleHeight = height - safePad;
+    const contentHeight = this.totalContentHeight || (this.scrollContainer?.getBounds()?.height || 0);
 
     if (contentHeight > visibleHeight) {
       if (this.wheelEventManager) {
@@ -3450,7 +3714,7 @@ class GamesPanel {
       };
       
       if (this.wheelEventManager) {
-        this.wheelEventManager.registerHandler('gamesScroll', this.scrollHandler);
+        this.wheelEventManager.registerHandler('gamesScroll', this.scrollHandler, this);
       }
     }
   }
@@ -3462,6 +3726,8 @@ class GamesPanel {
     this.container.setVisible(true);
     this.visible = true;
     this.scrollContainer.y = 0;
+    // Recompute and ensure wheel handler is bound when shown
+    this.setupScrolling();
   }
 
   hide() {

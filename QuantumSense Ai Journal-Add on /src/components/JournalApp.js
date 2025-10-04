@@ -629,21 +629,35 @@ export class JournalApp {
                         } catch {}
                     });
                 } catch {}
-                // Mark intent to resume last played level when game loads
-                localStorage.setItem('resumeGameOnLoad', '1');
-
-                // Ensure we have a lastPlayedLevel value; fallback to psychicLevel
+                // Determine target level
                 let lastLevel = parseInt(localStorage.getItem('lastPlayedLevel') || '0', 10);
                 if (!lastLevel || Number.isNaN(lastLevel)) {
                     try {
                         const stats = JSON.parse(localStorage.getItem('divineSenseGameStats') || '{}');
                         lastLevel = parseInt(stats?.psychicLevel || '1', 10);
                     } catch {}
-                    localStorage.setItem('lastPlayedLevel', String(lastLevel || 1));
+                }
+                localStorage.setItem('lastPlayedLevel', String(lastLevel || 1));
+
+                // If embedded inside the game, close the overlay and start immediately
+                const isEmbeddedInGame = !!(window.JournalBridge) || !!document.querySelector('#phaser-game-container canvas');
+                if (isEmbeddedInGame) {
+                    try { window.JournalBridge && window.JournalBridge.close(); } catch {}
+                    try {
+                        // Signal the game to start at the desired level
+                        window.dispatchEvent(new CustomEvent('quantum-field-play', { detail: { level: lastLevel || 1 } }));
+                    } catch {}
+                    return;
                 }
 
-                // Navigate to the main game page (parent index.html)
-                window.location.href = '../index.html';
+                // Otherwise navigate to the main game page (absolute path to root)
+                // Ensure the game does NOT reopen the journal on load
+                try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
+                try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
+                // Land on the Games tab when the game loads
+                try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
+                // Use absolute path so we don't accidentally reload the add-on page
+                window.location.href = '/index.html';
             } catch (err) {
                 console.warn('Failed to launch Quantum Field:', err);
                 this.showDebugMessage('Unable to open the Quantum Field.');
@@ -1815,21 +1829,34 @@ export class JournalApp {
                         } catch {}
                     });
                 } catch {}
-                // Mark intent to resume last played level when game loads
-                localStorage.setItem('resumeGameOnLoad', '1');
-
-                // Ensure we have a lastPlayedLevel value; fallback to psychicLevel
+                // Determine target level
                 let lastLevel = parseInt(localStorage.getItem('lastPlayedLevel') || '0', 10);
                 if (!lastLevel || Number.isNaN(lastLevel)) {
                     try {
                         const stats = JSON.parse(localStorage.getItem('divineSenseGameStats') || '{}');
                         lastLevel = parseInt(stats?.psychicLevel || '1', 10);
                     } catch {}
-                    localStorage.setItem('lastPlayedLevel', String(lastLevel || 1));
+                }
+                localStorage.setItem('lastPlayedLevel', String(lastLevel || 1));
+
+                // If embedded inside the game, close the overlay and start immediately
+                const isEmbeddedInGame = !!(window.JournalBridge) || !!document.querySelector('#phaser-game-container canvas');
+                if (isEmbeddedInGame) {
+                    try { window.JournalBridge && window.JournalBridge.close(); } catch {}
+                    try {
+                        window.dispatchEvent(new CustomEvent('quantum-field-play', { detail: { level: lastLevel || 1 } }));
+                    } catch {}
+                    return;
                 }
 
-                // Navigate to the main game page (parent index.html)
-                window.location.href = '../index.html';
+                // Otherwise navigate to the main game page (absolute path to root)
+                // Ensure the game does NOT reopen the journal on load
+                try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
+                try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
+                // Land on the Games tab when the game loads
+                try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
+                // Use absolute path so we don't accidentally reload the add-on page
+                window.location.href = '/index.html';
             } catch (err) {
                 console.warn('Failed to launch Quantum Field:', err);
                 this.showDebugMessage('Unable to open the Quantum Field.');
