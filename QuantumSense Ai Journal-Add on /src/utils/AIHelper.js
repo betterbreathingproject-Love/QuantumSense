@@ -1,4 +1,4 @@
-import { ChatAIClass } from 'components/ChatAI.js';
+import { getAIProvider, setProvider, setChatGPTApiKey, setChatGPTConfig } from 'utils/aiProvider.js';
 /**
  * AIHelper - A utility module for managing AI interactions with scalable data handling
  * 
@@ -8,7 +8,7 @@ import { ChatAIClass } from 'components/ChatAI.js';
  */
 class AIHelper {
     constructor() {
-        this.chatAI = null;
+        this.provider = null;
         this.dataBridge = null;
         this.isInitialized = false;
         this.isBridgeReady = false;
@@ -20,12 +20,14 @@ class AIHelper {
     init() {
         if (!this.isInitialized) {
             try {
-                this.chatAI = new ChatAIClass();
+                // Default to ChatGPT provider
+                try { setProvider('chatgpt'); } catch (_) {}
+                this.provider = getAIProvider();
                 this.initDataBridge();
                 this.isInitialized = true;
                 console.log('AI Helper initialized successfully');
             } catch (error) {
-                console.warn('AI Helper initialization failed:', error.message);
+                console.warn('AI Helper initialization failed:', (error && error.message) || error);
                 this.isInitialized = false;
             }
         }
@@ -36,22 +38,17 @@ class AIHelper {
      */
     initDataBridge() {
         try {
-            // Check if AiIntroDataBridge is available globally
-            if (typeof window !== 'undefined' && window.AiIntroDataBridge) {
-                this.dataBridge = new window.AiIntroDataBridge({
-                    maxDataPoints: 1000, // Configurable limit for journal entries
-                    compressionEnabled: true, // Enable data compression for large datasets
-                    cacheStrategy: 'intelligent', // Use intelligent caching
-                    batchProcessing: true // Enable batch processing for multiple entries
-                });
+            // Prefer the ES module data collector attached as a global helper
+            if (typeof window !== 'undefined' && typeof window.getQuantumSenseAiIntroData === 'function') {
+                this.dataBridge = { collect: () => window.getQuantumSenseAiIntroData() };
                 this.isBridgeReady = true;
-                console.log('AI Data Bridge initialized for scalable data handling');
+                console.log('AI Data Bridge connected to getQuantumSenseAiIntroData');
             } else {
-                console.warn('AiIntroDataBridge not available, using fallback mode');
+                console.warn('AiIntroDataBridge (collector) not available, using fallback mode');
                 this.isBridgeReady = false;
             }
         } catch (error) {
-            console.warn('Data Bridge initialization failed:', error.message);
+            console.warn('Data Bridge initialization failed:', (error && error.message) || error);
             this.isBridgeReady = false;
         }
     }
@@ -60,7 +57,7 @@ class AIHelper {
      * Check if AI is available and ready to use
      */
     isReady() {
-        return this.isInitialized && this.chatAI !== null;
+        return this.isInitialized && this.provider !== null;
     }
     /**
      * Check if data bridge is ready for large dataset handling
@@ -81,15 +78,8 @@ class AIHelper {
             return null;
         }
         try {
-            // Use data bridge for large prompts if available
-            if (this.isBridgeAvailable() && prompt.length > 2000) {
-                const optimizedPrompt = await this.dataBridge.optimizePrompt(prompt, options);
-                const response = await this.chatAI.getResponse(optimizedPrompt);
-                return response;
-            } else {
-                const response = await this.chatAI.getResponse(prompt);
-                return response;
-            }
+            const response = await this.provider.getResponse(prompt);
+            return response;
         } catch (error) {
             console.error('AI request failed:', error);
             return null;
@@ -106,7 +96,7 @@ class AIHelper {
             return null;
         }
         try {
-            const response = await this.chatAI.getResponseWithHistory(prompt);
+            const response = await this.provider.getResponseWithHistory(prompt);
             return response;
         } catch (error) {
             console.error('AI request failed:', error);
@@ -125,21 +115,9 @@ class AIHelper {
             return null;
         }
         try {
-            if (this.isBridgeAvailable() && journalEntries.length > 10) {
-                // Use data bridge for large datasets
-                const processedData = await this.dataBridge.processJournalData(journalEntries, {
-                    analysisType,
-                    includeMetadata: true,
-                    compressionLevel: 'medium'
-                });
-                
-                const prompt = this.createOptimizedPrompt(processedData, analysisType);
-                return await this.chatAI.getResponse(prompt);
-            } else {
-                // Fallback to standard processing for smaller datasets
-                const prompt = this.createStandardPrompt(journalEntries, analysisType);
-                return await this.chatAI.getResponse(prompt);
-            }
+            const payload = await this.getUnifiedPayload(journalEntries, analysisType);
+            const prompt = this.createUnifiedPrompt(payload, analysisType);
+            return await this.provider.getResponse(prompt);
         } catch (error) {
             console.error('Large dataset processing failed:', error);
             return null;
@@ -149,19 +127,25 @@ class AIHelper {
      * Create optimized prompts for large datasets
      * @private
      */
-    createOptimizedPrompt(processedData, analysisType) {
-        return `Analyze this processed journal data for ${analysisType}:\n${JSON.stringify(processedData, null, 2)}`;
-    }
-    /**
-     * Create standard prompts for smaller datasets
-     * @private
-     */
-    createStandardPrompt(entries, analysisType) {
-        const entriesText = entries.map(entry => 
-            `${entry.date}: ${entry.text.substring(0, 200)}${entry.text.length > 200 ? '...' : ''}`
-        ).join('\n');
-        
-        return `Analyze these journal entries for ${analysisType}:\n${entriesText}`;
+    createUnifiedPrompt(payload, analysisType) {
+        const scope = analysisType || 'psychic_intuition_development';
+        return [
+            `Task: Generate personalized Quantum Insights (on-demand) focused on ${scope}.`,
+            'Use ALL provided data to deliver concise, actionable feedback with empathy. Prioritize:',
+            '- Psychic performance patterns (accuracy, streaks, p-value, Q-score)',
+            '- Sense vs Influence mode differences',
+            '- Coherence practice (total/daily time, sessions, streak) and its impact',
+            '- Journal moods (multi-select) and themes relevant to intuition and wellness',
+            '',
+            'Output sections:',
+            '1) Key Patterns',
+            '2) Personalized Recommendations (numbered, practical drills)',
+            '3) Coherence Tips (breathing/binaural beats suggestions)',
+            '4) Next Steps (1–3 actions for the next session)',
+            '',
+            'Data JSON:',
+            JSON.stringify(payload)
+        ].join('\n');
     }
     /**
      * Get insights with intelligent data handling for scalability
@@ -228,3 +212,43 @@ export const aiHelper = new AIHelper();
 
 // Also export the class for custom instances if needed
 export { AIHelper };
+
+// Helper methods: unified payload collection
+AIHelper.prototype.getUnifiedPayload = async function(journalEntries, analysisType) {
+    const safeParse = (str, fallback) => { try { return JSON.parse(str || 'null') || fallback; } catch (_) { return fallback; } };
+    const getItem = (key, fallback) => { try { return safeParse(localStorage.getItem(key), fallback); } catch (_) { return fallback; } };
+
+    let bridgeData = null;
+    try {
+        if (this.isBridgeAvailable()) {
+            bridgeData = this.dataBridge.collect();
+        } else if (typeof window !== 'undefined' && typeof window.getQuantumSenseAiIntroData === 'function') {
+            bridgeData = window.getQuantumSenseAiIntroData();
+        }
+    } catch (_) { bridgeData = null; }
+
+    const stats = getItem('divineSenseGameStats', {});
+    const player = getItem('divineSensePlayer', {});
+    const leaderboard = getItem('divineSenseLeaderboard', []);
+    const moodData = getItem('journalMoodData', {});
+    const audioSettings = getItem('divineSenseAudioSettings', {});
+    const breathingSettings = getItem('divineSenseBreathingSettings', {});
+    const gameMode = getItem('divineSenseGameMode', 'sense');
+
+    const payload = {
+        meta: { provider: 'AIHelper', version: '2.0.0', collectedAt: Date.now(), analysisType },
+        player, stats, leaderboard,
+        journal: { entries: journalEntries, moodData },
+        settings: { audio: audioSettings, breathing: breathingSettings, gameMode },
+        bridge: bridgeData || undefined
+    };
+    return payload;
+};
+
+// Convenience configuration for ChatGPT
+AIHelper.prototype.configureChatGPT = function({ apiKey, baseUrl, model } = {}) {
+    try {
+        if (apiKey) setChatGPTApiKey(apiKey);
+        setChatGPTConfig({ baseUrl, model });
+    } catch (_) {}
+};

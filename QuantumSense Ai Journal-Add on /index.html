@@ -169,17 +169,29 @@
             pointer-events: none;
             display: none; /* Hide canvas but make it available in the DOM */
         }
+
+        /* Click-through blocker overlay: prevents any clicks from reaching the page */
+        .interaction-blocker {
+            position: fixed;
+            inset: 0;
+            z-index: 99999; /* above everything */
+            background: transparent; /* invisible overlay */
+            pointer-events: auto; /* capture all pointer events */
+            cursor: not-allowed;
+            display: none; /* HIDE by default so the page is clickable */
+        }
     </style>
     <script type="importmap">
-    {
-        "imports": {
-            "components/JournalApp.js": "./src/components/JournalApp.js",
-            "components/OnboardingManager.js": "./src/components/OnboardingManager.js",
-            "utils/AIHelper.js": "./src/utils/AIHelper.js",
-            "components/ChatAI.js": "./src/components/ChatAI.js"
+        {
+            "imports": {
+                "components/JournalApp.js": "./src/components/JournalApp.js",
+                "components/OnboardingManager.js": "./src/components/OnboardingManager.js",
+                "utils/AIHelper.js": "./src/utils/AIHelper.js",
+                "components/ChatAI.js": "./src/components/ChatAI.js",
+                "utils/aiProvider.js": "./src/utils/aiProvider.js"
+            }
         }
-    }
-    </script>
+        </script>
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
@@ -200,5 +212,22 @@
     <script type="module" src="src/main.js"></script>
     <!-- Load AiIntroDataBridge as a module to support ES exports -->
     <script type="module" src="./assets/AiIntroDataBridge.js"></script>
+    
+    <!-- Full-screen overlay to prevent click-through on this page -->
+    <div id="interaction-blocker" class="interaction-blocker" aria-hidden="true"></div>
+    <script>
+      // Helper toggle functions, available in DevTools if you need to re-enable interaction.
+      window.blockInteraction = function() {
+        const el = document.getElementById('interaction-blocker');
+        if (el) el.style.display = '';
+      };
+      window.unblockInteraction = function() {
+        const el = document.getElementById('interaction-blocker');
+        if (el) el.style.display = 'none';
+      };
+      // Do NOT block by default; keep interactions enabled on load.
+      // Use window.blockInteraction() in DevTools if you need to temporarily block clicks.
+      window.unblockInteraction();
+    </script>
 </body>
 </html>

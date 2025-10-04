@@ -509,11 +509,27 @@ export class JournalApp {
                     return;
                 }
 
-                // Otherwise navigate to the main game page at root
+                // Otherwise navigate to the main game page
+                // Note: When running the Journal Add-on on a separate dev server (e.g., :5510),
+                // navigating to '/index.html' stays within the add-on and appears to "do nothing".
+                // Prefer known dev servers for the main game if present, then fallback to same-origin.
                 try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
                 try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
                 try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
-                window.location.href = '/index.html';
+
+                const sameOriginGame = new URL('/index.html', window.location.origin).href;
+                const preferredGameUrls = [
+                    // Common local dev servers for the main game
+                    'http://localhost:5503/index.html',
+                    'http://localhost:5173/index.html',
+                    'http://localhost:5173/',
+                    // Fallback to same-origin root
+                    sameOriginGame,
+                ];
+                // Pick the first URL different from current location to ensure a visible navigation
+                const currentUrl = window.location.href.replace(/#.*$/, '');
+                const targetUrl = preferredGameUrls.find(u => u && u !== currentUrl) || sameOriginGame;
+                window.location.href = targetUrl;
             } catch (err) {
                 console.warn('Play Now: Failed to launch game', err);
                 this.showDebugMessage('Unable to open the game.');
@@ -950,6 +966,31 @@ export class JournalApp {
             this.showPastInsights();
         });
         insightsContent.appendChild(pastInsightsButton);
+
+        // DEV: Bypass 3-day requirement
+        // Adds a small developer test button below "Past Insights" to generate insights
+        // regardless of the number of journal entries available.
+        const devBypassButton = document.createElement('button');
+        devBypassButton.className = 'dev-bypass-insights-button';
+        devBypassButton.textContent = 'Dev: Generate Insights (no 3-day requirement)';
+        // Inline styles for visibility while keeping it subtle
+        devBypassButton.style.marginTop = '8px';
+        devBypassButton.style.fontSize = '12px';
+        devBypassButton.style.padding = '6px 10px';
+        devBypassButton.style.borderRadius = '8px';
+        devBypassButton.style.border = '1px dashed rgba(255,255,255,0.25)';
+        devBypassButton.style.background = 'rgba(107, 70, 193, 0.15)';
+        devBypassButton.style.color = '#bbb';
+        devBypassButton.style.cursor = 'pointer';
+        devBypassButton.style.display = 'inline-block';
+        devBypassButton.style.alignSelf = 'flex-start';
+        devBypassButton.title = 'Developer helper: bypass minimum journal entries';
+        devBypassButton.addEventListener('click', () => {
+            try { localStorage.setItem('devBypassInsightsGate', '1'); } catch {}
+            // Directly invoke insights generation regardless of entry count
+            this.generateQuantumInsights();
+        });
+        insightsContent.appendChild(devBypassButton);
         
         section.appendChild(insightsContent);
         return section;
@@ -1018,11 +1059,17 @@ export class JournalApp {
         
         try {
             const allEntries = Object.values(this.entries);
-            const insights = await aiHelper.getScalableInsights(allEntries, 'psychic_intuition_development');
-            
-            if (insights) {
+            const TIMEOUT_MS = 12000; // 12s fail-safe
+            const insightsPromise = aiHelper.getScalableInsights(allEntries, 'psychic_intuition_development');
+            const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('__timeout__'), TIMEOUT_MS));
+            const insights = await Promise.race([insightsPromise, timeoutPromise]);
+
+            if (insights && insights !== '__timeout__') {
                 this.displayQuantumInsights(insights);
             } else {
+                if (insights === '__timeout__') {
+                    this.showDebugMessage('AI timed out — showing a generated report instead.');
+                }
                 this.displayQuantumInsightsFallback();
             }
         } catch (error) {
@@ -1110,7 +1157,7 @@ export class JournalApp {
             top: 20px;
             right: 20px;
             background: #2a2a2a;
-            color: #88ffaa;
+            color: #ffffff;
             padding: 1rem 1.5rem;
             border-radius: 8px;
             font-family: inherit;
@@ -1122,7 +1169,10 @@ export class JournalApp {
             border: 1px solid #444444;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         `;
-        debugAlert.textContent = `🧹 ${message}`;
+        const safeMessage = typeof message === 'string'
+            ? message
+            : (message && (message.message || String(message))) || 'Unknown error';
+        debugAlert.textContent = `🧹 ${safeMessage}`;
         
         document.body.appendChild(debugAlert);
         
@@ -5078,7 +5128,7 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                 }
                 
                 .insights-header p {
-                    color: #888888;
+                    color: #ffffff;
                     font-size: 1rem;
                 }
                 
@@ -5203,7 +5253,7 @@ Please write a calm, reflective response of 150-200 words that helps them see th
                 }
                 
                 .past-insights-header p {
-                    color: #888888;
+                    color: #ffffff;
                 }
                 .past-insights-list {
                     display: grid;
