@@ -80,7 +80,7 @@ class OnboardingDashPanel {
           styles.textContent = `
             .onboarding-embedded { cursor: default; }
             /* Make embedded root fill container but leave space for the bottom menu */
-            .onboarding-embedded .embedded-journal-root { position: absolute; left:0; right:0; top:0; bottom:100px; overflow: auto; pointer-events: auto; background: #000; }
+            .onboarding-embedded .embedded-journal-root { position: absolute; left:0; right:0; top:0; bottom: var(--bottom-menu-height, 100px) !important; overflow: auto; pointer-events: auto; background: #000; }
             /* Ensure the Journal content starts at the very top; avoid vertical centering */
             .onboarding-embedded #journalInterface { position: absolute; inset: 0; display: flex; align-items: flex-start !important; justify-content: center !important; pointer-events: auto; }
             .onboarding-embedded #journalInterface > * { margin-top: 0 !important; }
@@ -234,7 +234,7 @@ class OnboardingDashPanel {
     const bgOverlay = document.createElement('div');
     // Backdrop blocks pointer events over the content area and visually hides the gameplay behind
     // Leave bottom menu area clickable (bottom:100px)
-    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; pointer-events:auto; z-index:0; background: rgba(6, 8, 18, 0.96);';
+    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom: var(--bottom-menu-height, 100px) !important; pointer-events:auto; z-index:0; background: rgba(6, 8, 18, 0.96);';
     this.mountEl.appendChild(bgOverlay);
 
     // Create required containers for JournalApp
@@ -242,7 +242,7 @@ class OnboardingDashPanel {
     root.className = 'embedded-journal-root';
     // Leave bottom 100px clear for the Phaser bottom menu and allow inner content to capture input
     // Root remains transparent; black backdrop above ensures no bleed-through
-    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom:100px; overflow:auto; pointer-events:auto; background: rgba(10, 12, 24, 0.98); z-index:1;';
+    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom: var(--bottom-menu-height, 100px) !important; overflow:auto; pointer-events:auto; background: rgba(10, 12, 24, 0.98); z-index:1; outline: 1px solid rgba(0,255,136,0.25);';
     // Mark AI Dash instances so JournalApp can tailor layout (skip onboarding, reorder sections)
     if (this.instanceName === 'ai') {
       try { root.setAttribute('data-ai-dash', 'true'); window.__AI_DASH__ = true; } catch {}
@@ -417,7 +417,8 @@ export class BottomMenuManager {
     menuBg.lineStyle(2, 0x8a2be2, 0.5);
     menuBg.strokeRect(0, 0, width, 2);
 
-    const tabWidth = width / 4;
+    // Five equally spaced tabs with Infinity AI centered
+    const tabWidth = width / 5;
     this.tabs = {};
     // Left-most
     this.tabs.home    = this.createTab('home',    '🏠', 'Home',            tabWidth * 0.5, () => this.switchTab('home'));
@@ -425,11 +426,19 @@ export class BottomMenuManager {
     this.tabs.games   = this.createTab('games',   '🎮', 'Games',           tabWidth * 1.5, () => this.switchTab('games'));
     // Center button: Infinity AI (opens Phaser-native JournalPanel)
     this.tabs.journal = this.createTab('journal', '♾️', 'Infinity AI',     width / 2,      () => this.switchTab('journal'));
+    // Right-center: Live Mode (between Infinity AI and Leaderboard)
+    this.tabs.live    = this.createTab('live',    '🔴', 'Live Mode',       tabWidth * 3.5, () => this.switchTab('live'));
     // Right-most
-    this.tabs.stats   = this.createTab('stats',   '📊', 'Leaderboard',     tabWidth * 3.5, () => this.switchTab('stats'));
+    this.tabs.stats   = this.createTab('stats',   '📊', 'Leaderboard',     tabWidth * 4.5, () => this.switchTab('stats'));
 
     this.menuContainer.add([menuBg, ...Object.values(this.tabs)]);
     this.updateTabStates();
+
+    // Expose the bottom menu height to CSS so embedded overlays align precisely.
+    try {
+      const menuHeightPx = 100; // Keep in sync with fillRect/menuContainer positioning
+      document.documentElement.style.setProperty('--bottom-menu-height', `${menuHeightPx}px`);
+    } catch {}
   }
 
   createTab(id, icon, label, x, callback) {
@@ -483,6 +492,8 @@ export class BottomMenuManager {
     // This mirrors the Home tab’s embedded journal while keeping Home intact
     this.journalPanel = new OnboardingDashPanel(this.scene, 'ai');
     this.globalTrendsPanel = new GlobalTrendsPanel(this.scene, this.statsTracker); // Replaced StatsPanel with GlobalTrendsPanel
+    // New Live Mode panel (styled similar to AI Dash, shows a COMING SOON message)
+    this.livePanel = new LiveModePanel(this.scene);
 
     // Open preferred tab on load if specified (e.g., set by JournalApp "Play" CTA)
     // But if the tutorial hasn't been seen yet, force Home so gameplay (dice) remains the background
@@ -521,6 +532,7 @@ export class BottomMenuManager {
       case 'home':    this.currentPanel = this.homePanel;    break;
       case 'games':   this.currentPanel = this.gamesPanel;   break;
       case 'journal': this.currentPanel = this.journalPanel; break;
+      case 'live':    this.currentPanel = this.livePanel;    break;
       case 'stats':   this.currentPanel = this.globalTrendsPanel;   break; // Updated to use globalTrendsPanel
       default: this.currentPanel = null;
     }
@@ -535,7 +547,7 @@ export class BottomMenuManager {
     }
 
     // Ensure no other panels remain visible to prevent overlays covering gameplay UI
-    [this.homePanel, this.gamesPanel, this.journalPanel, this.globalTrendsPanel].forEach(panel => { // Updated reference
+    [this.homePanel, this.gamesPanel, this.journalPanel, this.livePanel, this.globalTrendsPanel].forEach(panel => { // Updated reference
       if (panel && panel !== this.currentPanel && typeof panel.isVisible === 'function' && panel.isVisible()) {
         if (typeof panel.hide === 'function') {
           panel.hide();
@@ -571,7 +583,7 @@ export class BottomMenuManager {
     this.hideCurrentPanel();
 
     // Also hide any other panel that might have been left visible
-    [this.homePanel, this.gamesPanel, this.journalPanel, this.statsPanel].forEach(panel => {
+    [this.homePanel, this.gamesPanel, this.journalPanel, this.livePanel, this.globalTrendsPanel].forEach(panel => {
       if (panel && typeof panel.isVisible === 'function' && panel.isVisible()) {
         panel.hide();
       }
@@ -631,6 +643,110 @@ export class BottomMenuManager {
       }
     });
   }
+}
+
+/* ---------------------- LiveModePanel ---------------------- */
+class LiveModePanel {
+  constructor(scene) {
+    this.scene = scene;
+    this.visible = false;
+    this.mountEl = null;
+    this._onResize = this.updateLayout.bind(this);
+    this._ensureMount();
+  }
+
+  async _ensureMount() {
+    try {
+      const parent = document.getElementById('phaser-game-container') || document.body;
+      if (!this.mountEl) {
+        this.mountEl = document.createElement('div');
+        this.mountEl.className = 'onboarding-embedded';
+        this.mountEl.id = 'live-mode-embedded';
+        this.mountEl.style.cssText = `
+          position: absolute;
+          left: 0; top: 0; width: 100%; height: 100%;
+          display: none;
+          pointer-events: none;
+          z-index: 15000;
+          background: transparent;
+        `;
+        try { if (parent && getComputedStyle(parent).position === 'static') parent.style.position = 'relative'; } catch {}
+        parent.appendChild(this.mountEl);
+
+        // Inject minimal styles once
+        if (!document.getElementById('liveModeEmbeddedStyles')) {
+          const styles = document.createElement('style');
+          styles.id = 'liveModeEmbeddedStyles';
+          styles.textContent = `
+            #live-mode-embedded .live-mode-root { position:absolute; left:0; right:0; top:0; bottom:95px !important; display:flex; align-items:center; justify-content:center; pointer-events:auto; background:#000; }
+            #live-mode-embedded .card { max-width: 640px; margin: 0 auto; padding: 24px 28px; border-radius: 16px; background: rgba(18,18,28,0.85); box-shadow: 0 12px 32px rgba(0,0,0,0.35); border: 1px solid rgba(138,43,226,0.35); color:#e6e6f9; text-align:center; }
+            #live-mode-embedded .title { font-family: 'Arial Black', Arial, sans-serif; font-size: 28px; color:#8a2be2; letter-spacing:0.5px; margin-bottom: 10px; }
+            #live-mode-embedded .desc { font-family: Arial, sans-serif; font-size: 16px; color:#c9c9ff; }
+          `;
+          document.head.appendChild(styles);
+        }
+
+        // Build content once
+        const root = document.createElement('div');
+        root.className = 'live-mode-root';
+        const card = document.createElement('div');
+        card.className = 'card';
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = 'COMING SOON';
+        const desc = document.createElement('div');
+        desc.className = 'desc';
+        desc.textContent = 'Play live with others across the globe, enhancing our quantum connection.';
+        card.appendChild(title);
+        card.appendChild(desc);
+        root.appendChild(card);
+        this.mountEl.appendChild(root);
+
+        try { window.addEventListener('resize', this._onResize, { passive: true }); } catch {}
+        this.updateLayout();
+      }
+    } catch (e) {
+      console.warn('LiveModePanel: failed to create mount element', e);
+    }
+  }
+
+  updateLayout() {
+    try {
+      if (!this.mountEl) return;
+      const canvas = (this.scene && this.scene.sys && this.scene.sys.game && this.scene.sys.game.canvas) || document.querySelector('#phaser-game-container canvas');
+      const parent = this.mountEl.parentElement || document.getElementById('phaser-game-container') || document.body;
+      if (!canvas || !parent) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+
+      const left = Math.max(0, canvasRect.left - parentRect.left);
+      const top = Math.max(0, canvasRect.top - parentRect.top);
+      const width = Math.max(0, canvasRect.width);
+      const height = Math.max(0, canvasRect.height);
+
+      this.mountEl.style.left = `${left}px`;
+      this.mountEl.style.top = `${top}px`;
+      this.mountEl.style.width = `${width}px`;
+      this.mountEl.style.height = `${height}px`;
+      this.mountEl.style.borderRadius = getComputedStyle(canvas).borderRadius || '0px';
+    } catch (e) {
+      console.warn('LiveModePanel: updateLayout failed', e);
+    }
+  }
+
+  async show() {
+    this.visible = true;
+    await this._ensureMount();
+    this.updateLayout();
+    if (this.mountEl) this.mountEl.style.display = 'block';
+  }
+
+  hide() {
+    this.visible = false;
+    if (this.mountEl) this.mountEl.style.display = 'none';
+  }
+
+  isVisible() { return this.visible; }
 }
 
 /* ---------------------- HomePanel ---------------------- */

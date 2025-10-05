@@ -14,7 +14,8 @@
           "components/JournalApp.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/JournalApp.js",
           "components/OnboardingManager.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/OnboardingManager.js",
           "components/ChatAI.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/components/ChatAI.js",
-          "utils/AIHelper.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/utils/AIHelper.js"
+          "utils/AIHelper.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/utils/AIHelper.js",
+          "utils/aiProvider.js": "./QuantumSense%20Ai%20Journal-Add%20on%20/src/utils/aiProvider.js"
         }
       }
     </script>
@@ -129,7 +130,10 @@
       }
       #journal-editor-textarea {
         width: 100%;
-        height: 100%;
+        /* Auto-growing: start compact so modal stays fully visible initially */
+        height: auto;
+        min-height: 90px;
+        overflow-y: hidden;
         background: transparent;
         border: 1px solid #444;
         border-radius: 8px;

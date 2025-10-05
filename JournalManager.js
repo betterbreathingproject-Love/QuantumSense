@@ -390,11 +390,21 @@ export class JournalManager {
         }
       }
       
-      // Adjust textarea for mobile
+      // Adjust textarea for mobile and enable auto-grow
       const textarea = document.getElementById('journal-editor-textarea');
       if (textarea) {
-        textarea.style.height = '200px';
         textarea.style.fontSize = '14px';
+        textarea.style.overflowY = 'hidden';
+        textarea.style.resize = 'none';
+        const autoGrow = (el) => {
+          const lineHeight = parseFloat(getComputedStyle(el).lineHeight || '20');
+          const minHeight = Math.max(lineHeight * 3, 80);
+          el.style.height = 'auto';
+          el.style.height = Math.max(el.scrollHeight, minHeight) + 'px';
+        };
+        // Initialize and bind
+        requestAnimationFrame(() => autoGrow(textarea));
+        textarea.addEventListener('input', () => autoGrow(textarea));
       }
     }
   }

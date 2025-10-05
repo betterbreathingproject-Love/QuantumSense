@@ -54,7 +54,7 @@ export class JournalBridge {
     // Minimal markup expected by JournalApp
     this.root.innerHTML = `
       <!-- Overlay wrapper fills the game area (except reserved bottom space) and blocks clicks to the scene underneath -->
-      <div class="journalBridge-wrap" style="position:absolute;left:0;right:0;top:0;bottom:110px;min-height:auto;width:100%;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto;pointer-events:auto;background:rgba(0, 0, 0, 0.9);">
+      <div class="journalBridge-wrap" style="position:absolute;left:0;right:0;top:0;bottom:96px;min-height:auto;width:100%;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto;pointer-events:auto;background:rgba(0, 0, 0, 0.9);">
         <div class="main-container visible" id="mainContainer" style="width:100%;max-width:720px;margin:0 auto;background:transparent;">
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
             <button id="journalBridgeSkip" aria-label="Skip to Home Dash" style="background:#0c0114;color:#ffaa00;border:1px solid #8a2be2;border-radius:8px;padding:8px 12px;cursor:pointer;">Skip to Home 🏠</button>
