@@ -6,9 +6,11 @@ export class DiceController {
     this.createDiceDisplay();
   }
   createDiceDisplay() {
+    // Use the fixed design-space so the entire app stays stable under FIT scaling
     const width = this.scene.sys.game.config.width;
     const height = this.scene.sys.game.config.height;
     
+    // Core container that holds coin/dice/box UI.
     this.resultContainer = this.scene.add.container(width / 2, height / 2 - 100);
     const size = 140; // Reduced from 180 to prevent overlapping with top UI
     this.diceGraphics = this.scene.add.graphics();
@@ -86,6 +88,7 @@ export class DiceController {
     
     // Removed omming sound functionality
     this.resultContainer.setVisible(false);
+
   }
   createBox(index, size) {
     const boxWidth = 100;
@@ -514,7 +517,7 @@ export class DiceController {
     }
     
     this.scene.tweens.killTweensOf(this.resultContainer);
-    if (this.resultContainer && this.resultContainer.scene) this.resultContainer.setScale(1); // End spin scale
+    if (this.resultContainer && this.resultContainer.scene) this.resultContainer.setScale(1);
     this.resultContainer.setAlpha(1);
     this.scene.tweens.add({
       targets: this.resultContainer,
@@ -929,11 +932,13 @@ export class DiceController {
   resetDice() {
       const width = this.scene.sys.game.config.width;
       const height = this.scene.sys.game.config.height;
-      if (this.resultContainer && this.resultContainer.scene) {
-          this.resultContainer.setPosition(width / 2, height / 2 - 100).setAngle(0).setScale(1);
-          this.resultContainer.setVisible(true);
-          this.resultContainer.setAlpha(1);
-      }
+    if (this.resultContainer && this.resultContainer.scene) {
+      const width = this.scene.sys.game.config.width;
+      const height = this.scene.sys.game.config.height;
+      this.resultContainer.setPosition(width / 2, height / 2 - 100).setAngle(0).setScale(1);
+      this.resultContainer.setVisible(true);
+      this.resultContainer.setAlpha(1);
+    }
       
       const activeLevel = this.scene.currentActiveLevel;
       const isEmotional = activeLevel === 3;

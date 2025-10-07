@@ -18,6 +18,8 @@ try { localStorage.setItem('quantumsense-auto-open-home', (!isKnownUser).toStrin
 
 const config = {
   type: Phaser.AUTO,
+  width: 576,   // Design width
+  height: 1024, // Design height (portrait-first)
   physics: {
     default: 'arcade',
     arcade: {
@@ -26,12 +28,15 @@ const config = {
     }
   },
   scale: {
+    // Stabilize layout: keep the 576x1024 design space and fit to parent
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     parent: 'phaser-game-container',
+    // Explicit design space and a sensible max scale to avoid over-scaling on large screens
     width: 576,
     height: 1024,
-    max: { width: 576, height: 1024 }
+    // Cap scale to ~1.33x to prevent distortion/oversizing on laptops while staying crisp on mobile
+    max: { width: 768, height: 1365 }
   },
   // Start with BootScene so assets preload, then it immediately starts GameScene.
   scene: [BootScene, GameScene, MyStatsScene, LevelSelectionScene, LoginScene],
