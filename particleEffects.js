@@ -1,6 +1,11 @@
+import Phaser from 'phaser';
+import { getScalingUtils } from './ScalingUtils.js';
+
 export class ParticleEffects {
   constructor(scene) {
     this.scene = scene;
+    // Initialize scaling utilities
+    this.scalingUtils = scene.scalingUtils || getScalingUtils();
   }
 
   createRollParticles() {
@@ -18,9 +23,10 @@ export class ParticleEffects {
     glowCircle.setBlendMode(Phaser.BlendModes.ADD);
     glowCircle.setAlpha(0);
     
-    // Draw a soft glow circle
+    // Draw a soft glow circle with responsive sizing
+    const glowRadius = this.scalingUtils.scaleDimension(80);
     glowCircle.fillGradientStyle(0x00ff88, 0x00ff88, 0x00ff88, 0x00ff88, 0.6, 0.6, 0.2, 0.2);
-    glowCircle.fillCircle(0, 0, 80);
+    glowCircle.fillCircle(0, 0, glowRadius);
     
     // Animate the glow - fade in and out
     this.scene.tweens.add({
@@ -36,15 +42,21 @@ export class ParticleEffects {
         }
     });
     
-    // Gentle sparkle particles - much fewer and smaller
+    // Gentle sparkle particles - scaled responsively
     const sparkleEmitter = this.scene.add.particles(dicePosition.x, dicePosition.y, 'particle', {
-        speed: { min: 50, max: 150 },
+        speed: { 
+            min: this.scalingUtils.scaleDimension(50), 
+            max: this.scalingUtils.scaleDimension(150) 
+        },
         angle: { min: 0, max: 360 },
-        scale: { start: 0.4, end: 0 },
+        scale: { 
+            start: this.scalingUtils.uniformScale * 0.4, 
+            end: 0 
+        },
         blendMode: 'ADD',
         lifespan: 800,
         tint: [0x00ff88, 0xffffff, 0x88ffaa],
-        gravityY: -50, // Slight upward drift
+        gravityY: this.scalingUtils.scaleDimension(-50), // Slight upward drift
         quantity: 3,
         frequency: 100
     });
@@ -57,8 +69,11 @@ export class ParticleEffects {
   }
   createLevelUpUnlockEffect(fromPos, onComplete) {
       const emitter = this.scene.add.particles(fromPos.x, fromPos.y, 'particle', {
-          speed: 800,
-          scale: { start: 0.8, end: 0.2 },
+          speed: this.scalingUtils.scaleDimension(800),
+          scale: { 
+              start: this.scalingUtils.uniformScale * 0.8, 
+              end: this.scalingUtils.uniformScale * 0.2 
+          },
           alpha: { start: 1, end: 0.5 },
           blendMode: 'ADD',
           lifespan: 800,
@@ -73,23 +88,36 @@ export class ParticleEffects {
     });
   }
   createCatRevealParticles(x, y) {
-    // Emitter for heart-like particles
+    // Emitter for heart-like particles - scaled responsively
     const heartEmitter = this.scene.add.particles(x, y, 'particle', {
-        speed: { min: 100, max: 300 },
+        speed: { 
+            min: this.scalingUtils.scaleDimension(100), 
+            max: this.scalingUtils.scaleDimension(300) 
+        },
         angle: { start: 220, end: 320 }, // Emit upwards in an arc
-        scale: { start: 0.6, end: 0 },
+        scale: { 
+            start: this.scalingUtils.uniformScale * 0.6, 
+            end: 0 
+        },
         blendMode: 'ADD',
         lifespan: 1000,
         tint: [0xff00ff, 0xff69b4, 0xffc0cb], // Pinks and magentas
-        gravityY: -500,
+        gravityY: this.scalingUtils.scaleDimension(-500),
     });
     heartEmitter.explode(25);
     this.scene.time.delayedCall(2000, () => heartEmitter.destroy());
-    // Another emitter for general sparkles
+    
+    // Another emitter for general sparkles - scaled responsively
     const sparkleEmitter = this.scene.add.particles(x, y, 'particle', {
-        speed: { min: 50, max: 200 },
+        speed: { 
+            min: this.scalingUtils.scaleDimension(50), 
+            max: this.scalingUtils.scaleDimension(200) 
+        },
         angle: { min: 0, max: 360 },
-        scale: { start: 0.5, end: 0 },
+        scale: { 
+            start: this.scalingUtils.uniformScale * 0.5, 
+            end: 0 
+        },
         blendMode: 'ADD',
         lifespan: 800,
         tint: [0xffff00, 0xffffff], // Gold and white

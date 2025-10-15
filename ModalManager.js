@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class ModalManager {
   constructor(scene, statsTracker) {
     this.scene = scene;

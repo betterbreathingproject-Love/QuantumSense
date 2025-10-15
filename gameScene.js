@@ -12,6 +12,7 @@ import { InteractionManager } from './InteractionManager.js';
 import { AudioManager } from './AudioManager.js';
 import { BottomMenuManager } from './BottomMenuManager.js';
 import { EmotionalAuraController } from './EmotionalAuraController.js';
+import { initializeScaling } from './ScalingUtils.js';
 export class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
@@ -31,6 +32,10 @@ export class GameScene extends Phaser.Scene {
     console.log('GameScene create() method started');
     
     try {
+      // Initialize responsive scaling system
+      this.scalingUtils = initializeScaling(this);
+      console.log('Scaling utils initialized');
+      
       // Initialize audio manager first
       this.audioManager = new AudioManager(this);
       console.log('AudioManager initialized');
@@ -709,7 +714,7 @@ export class GameScene extends Phaser.Scene {
     // Add large emoji behind the title
     const emojiText = this.add.text(width / 2, height / 2 - 50, feature.emoji, {
         fontFamily: 'Arial, sans-serif',
-        fontSize: '256px',
+        fontSize: this.scalingUtils.scaleFontSize(256),
         color: '#ffffff',
         align: 'center'
     }).setOrigin(0.5).setAlpha(0);
@@ -725,12 +730,12 @@ export class GameScene extends Phaser.Scene {
         delay: 200,
     });
     const title = this.add.text(width / 2, 100, `LEVEL ${completedLevel} COMPLETE`, {
-        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '48px', color: '#00e5ff', fontStyle: 'bold',
+        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(48), color: '#00e5ff', fontStyle: 'bold',
         align: 'center', stroke: '#000000', strokeThickness: 6,
         shadow: { color: '#00e5ff', blur: 20, stroke: true, fill: true }
     }).setOrigin(0.5);
     const statsTitle = this.add.text(width / 2, 200, 'Performance Analysis', {
-        fontFamily: 'Arial, sans-serif', fontSize: '24px', color: '#c9c9c9', fontStyle: 'bold'
+        fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(24), color: '#c9c9c9', fontStyle: 'bold'
     }).setOrigin(0.5);
     container.add([title, statsTitle]);
     
@@ -744,11 +749,11 @@ export class GameScene extends Phaser.Scene {
     statItems.forEach((item, index) => {
         const x = width / 2 + (index - 1) * 180;
         const valueText = this.add.text(x, statY, '0', {
-            fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '48px', color: '#ffff00', align: 'center',
+            fontFamily: '"Arial Black", Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(48), color: '#ffff00', align: 'center',
             shadow: { color: '#ffff00', blur: 15, stroke: true, fill: true }
         }).setOrigin(0.5);
         const labelText = this.add.text(x, statY + 40, item.label, {
-            fontFamily: 'Arial, sans-serif', fontSize: '16px', color: '#d3d3d3', align: 'center'
+            fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(16), color: '#d3d3d3', align: 'center'
         }).setOrigin(0.5);
         container.add([valueText, labelText]);
         this.tweens.add({
@@ -771,7 +776,7 @@ export class GameScene extends Phaser.Scene {
     // Unlocked Feature Section
     const featureY = height / 2 + 80;
     const unlockedTitle = this.add.text(width / 2, featureY - 50, `LEVEL ${newLevel} UNLOCKED`, {
-        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '36px', color: '#ffff00', align: 'center', fontStyle: 'bold',
+        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(36), color: '#ffff00', align: 'center', fontStyle: 'bold',
         shadow: { color: '#ffff00', blur: 20, stroke: true, fill: true }
     }).setOrigin(0.5);
     
@@ -780,17 +785,17 @@ export class GameScene extends Phaser.Scene {
     featureBox.lineStyle(2, 0x8a2be2, 1).strokeRoundedRect(width / 2 - 220, featureY, 440, 160, 15);
     
     const featureTitle = this.add.text(width / 2, featureY + 40, `${feature.emoji} ${feature.title} ${feature.emoji}`, {
-        fontFamily: 'Arial, sans-serif', fontSize: '28px', color: '#00e5ff', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(28), color: '#00e5ff', fontStyle: 'bold',
         shadow: { color: '#00e5ff', blur: 10, stroke: true, fill: true }
     }).setOrigin(0.5);
     const featureDesc = this.add.text(width / 2, featureY + 90, feature.description, {
-        fontFamily: 'Arial, sans-serif', fontSize: '18px', color: '#c9c9c9', align: 'center', wordWrap: { width: 400 }
+        fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(18), color: '#c9c9c9', align: 'center', wordWrap: { width: 400 }
     }).setOrigin(0.5);
     
     container.add([unlockedTitle, featureBox, featureTitle, featureDesc]);
     // Button to continue
     const continueButton = this.add.text(width / 2, height - 100, 'CONTINUE', {
-        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '24px', color: '#ffffff', fontStyle: 'bold',
+        fontFamily: '"Arial Black", Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(24), color: '#ffffff', fontStyle: 'bold',
         backgroundColor: '#8a2be2', padding: { x: 40, y: 20 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     
@@ -1112,7 +1117,7 @@ export class GameScene extends Phaser.Scene {
     // Create multiple text layers for dramatic effect
     const resultText = this.add.text(width / 2, 300, text, {
       fontFamily: '"Arial Black", Arial, sans-serif',
-      fontSize: '42px',
+      fontSize: this.scalingUtils.scaleFontSize(42),
       color: color,
       fontStyle: 'bold',
       align: 'center',
@@ -1124,7 +1129,7 @@ export class GameScene extends Phaser.Scene {
     // Background glow text
     const glowText = this.add.text(width / 2, 300, text, {
       fontFamily: '"Arial Black", Arial, sans-serif',
-      fontSize: '46px',
+      fontSize: this.scalingUtils.scaleFontSize(46),
       color: glowColor,
       fontStyle: 'bold',
       align: 'center'
@@ -1261,6 +1266,7 @@ export class GameScene extends Phaser.Scene {
     
     const direction = Phaser.Math.Between(0, 1) ? 1 : -1;
     const radius = Math.sqrt(Math.pow(star.originalX - star.centerX, 2) + Math.pow(star.originalY - star.centerY, 2));
+    const scaledRadius = this.scalingUtils.scaleDimension(radius);
     const startAngle = Math.atan2(star.originalY - star.centerY, star.originalX - star.centerX);
     
     let currentAngle = startAngle;
@@ -1273,8 +1279,8 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
       onUpdate: (tween, target) => {
         currentAngle = startAngle + Phaser.Math.DegToRad(target.angle);
-        target.x = target.centerX + Math.cos(currentAngle) * radius;
-        target.y = target.centerY + Math.sin(currentAngle) * radius;
+        target.x = target.centerX + Math.cos(currentAngle) * scaledRadius;
+        target.y = target.centerY + Math.sin(currentAngle) * scaledRadius;
       }
     });
   }
@@ -1297,11 +1303,13 @@ export class GameScene extends Phaser.Scene {
     const warpIntensity = 0.15;
     const dx = (star.originalX - star.centerX) * warpIntensity;
     const dy = (star.originalY - star.centerY) * warpIntensity;
+    const scaledDx = this.scalingUtils.scaleDimension(dx);
+    const scaledDy = this.scalingUtils.scaleDimension(dy);
     
     this.tweens.add({
         targets: star,
-        x: star.originalX + dx,
-        y: star.originalY + dy,
+        x: star.originalX + scaledDx,
+        y: star.originalY + scaledDy,
         duration: duration + Phaser.Math.Between(-6000, 6000),
         ease: 'Sine.easeInOut',
         yoyo: true,
@@ -1313,8 +1321,9 @@ export class GameScene extends Phaser.Scene {
     
     const direction = Phaser.Math.Between(0, 1) ? 1 : -1;
     const radius = Math.sqrt(Math.pow(star.originalX - star.centerX, 2) + Math.pow(star.originalY - star.centerY, 2));
+    const scaledRadius = this.scalingUtils.scaleDimension(radius);
     const startAngle = Math.atan2(star.originalY - star.centerY, star.originalX - star.centerX);
-    const speedMultiplier = Math.max(0.3, 1 - (radius / 400)); // Faster closer to center
+    const speedMultiplier = Math.max(0.3, 1 - (scaledRadius / this.scalingUtils.scaleDimension(400))); // Faster closer to center
     
     let vortexAngle = 0;
     
@@ -1329,7 +1338,7 @@ export class GameScene extends Phaser.Scene {
             
             // Create spiraling inward then outward motion
             const spiralProgress = (Math.sin(tween.progress * Math.PI * 4) + 1) / 2;
-            const currentRadius = radius * (0.3 + spiralProgress * 0.7);
+            const currentRadius = scaledRadius * (0.3 + spiralProgress * 0.7);
             
             target.x = target.centerX + Math.cos(vortexAngle) * currentRadius;
             target.y = target.centerY + Math.sin(vortexAngle) * currentRadius;

@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class EmotionalAuraController {
   constructor(scene) {
     this.scene = scene;
@@ -398,6 +399,10 @@ export class EmotionalAuraController {
       energyRing.setPosition(0, 0);
       this.imageContainer.add(energyRing);
       
+      // Scale energy ring properties responsively
+      const ringRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(100) : 100;
+      const strokeWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(8) : 8;
+      
       this.scene.tweens.add({
         targets: { scale: 0.1, alpha: 0.8 },
         scale: 2,
@@ -406,8 +411,8 @@ export class EmotionalAuraController {
         ease: 'Cubic.easeOut',
         onUpdate: (tween) => {
           energyRing.clear();
-          energyRing.lineStyle(8 * (1 - tween.progress), 0x00e5ff, tween.targets[0].alpha);
-          energyRing.strokeCircle(0, 0, 100 * tween.targets[0].scale);
+          energyRing.lineStyle(strokeWidth * (1 - tween.progress), 0x00e5ff, tween.targets[0].alpha);
+          energyRing.strokeCircle(0, 0, ringRadius * tween.targets[0].scale);
         },
         onComplete: () => energyRing.destroy()
       });
@@ -418,8 +423,10 @@ export class EmotionalAuraController {
       const scale = this.currentImage.targetScale || this.currentImage.scaleX;
       const scaledWidth = this.currentImage.width * scale;
       const scaledHeight = this.currentImage.height * scale;
-      const borderRadius = 20;
-      const borderWidth = 12;
+      
+      // Scale border properties responsively
+      const borderRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(20) : 20;
+      const borderWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(12) : 12;
       const borderColor = 0x8a2be2; // A nice purple to match the theme
       const borderPadding = borderWidth / 2;
       
@@ -562,6 +569,11 @@ export class EmotionalAuraController {
     // Add expanding glow ring
     const glowRing = this.scene.add.graphics({ x: this.imageContainer.x, y: this.imageContainer.y });
     glowRing.setBlendMode(Phaser.BlendModes.ADD);
+    
+    // Scale glow ring properties responsively
+    const glowStrokeWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(15) : 15;
+    const glowRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(120) : 120;
+    
     this.scene.tweens.add({
         targets: { scale: 0.2, alpha: 0.8 },
         scale: 1.5,
@@ -570,14 +582,20 @@ export class EmotionalAuraController {
         ease: 'Cubic.easeOut',
         onUpdate: (tween) => {
             glowRing.clear();
-            glowRing.lineStyle(15 * (1 - tween.progress), resultColor, tween.targets[0].alpha);
-            glowRing.strokeCircle(0, 0, 120 * tween.targets[0].scale);
+            glowRing.lineStyle(glowStrokeWidth * (1 - tween.progress), resultColor, tween.targets[0].alpha);
+            glowRing.strokeCircle(0, 0, glowRadius * tween.targets[0].scale);
         },
         onComplete: () => glowRing.destroy()
     });
+    
     // Add more dramatic particles
+    const scaledParticleSpeed = this.scene.scalingUtils ? {
+        min: this.scene.scalingUtils.scaleDimension(100),
+        max: this.scene.scalingUtils.scaleDimension(400)
+    } : { min: 100, max: 400 };
+    
     const emitter = this.scene.add.particles(this.imageContainer.x, this.imageContainer.y, 'star', {
-        speed: { min: 100, max: 400 },
+        speed: scaledParticleSpeed,
         angle: { min: 0, max: 360 },
         scale: { start: 0.8, end: 0 },
         blendMode: 'ADD',

@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class BreathingExercise {
   constructor(scene, initialSettings, callbacks, statsDisplayCallbacks) {
     this.scene = scene;

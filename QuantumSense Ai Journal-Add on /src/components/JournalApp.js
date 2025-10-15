@@ -517,19 +517,9 @@ export class JournalApp {
                 try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
                 try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
 
+                // Single-host mode: always navigate to same-origin index.html
                 const sameOriginGame = new URL('/index.html', window.location.origin).href;
-                const preferredGameUrls = [
-                    // Common local dev servers for the main game
-                    'http://localhost:5503/index.html',
-                    'http://localhost:5173/index.html',
-                    'http://localhost:5173/',
-                    // Fallback to same-origin root
-                    sameOriginGame,
-                ];
-                // Pick the first URL different from current location to ensure a visible navigation
-                const currentUrl = window.location.href.replace(/#.*$/, '');
-                const targetUrl = preferredGameUrls.find(u => u && u !== currentUrl) || sameOriginGame;
-                window.location.href = targetUrl;
+                window.location.href = sameOriginGame;
             } catch (err) {
                 console.warn('Play Now: Failed to launch game', err);
                 this.showDebugMessage('Unable to open the game.');
@@ -932,14 +922,19 @@ export class JournalApp {
                     return;
                 }
 
-                // Otherwise navigate to the main game page (absolute path to root)
+                // Otherwise navigate to the main game page (prefer known local servers)
                 // Ensure the game does NOT reopen the journal on load
                 try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
                 try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
                 // Land on the Games tab when the game loads
                 try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
-                // Use absolute path so we don't accidentally reload the add-on page
-                window.location.href = '/index.html';
+                // Single-host mode: always navigate to same-origin index.html
+                try {
+                    const sameOriginGame = new URL('/index.html', window.location.origin).href;
+                    window.location.href = sameOriginGame;
+                } catch {
+                    window.location.href = '/index.html';
+                }
             } catch (err) {
                 console.warn('Failed to launch Quantum Field:', err);
                 this.showDebugMessage('Unable to open the Quantum Field.');
@@ -2196,14 +2191,19 @@ export class JournalApp {
                     return;
                 }
 
-                // Otherwise navigate to the main game page (absolute path to root)
+                // Otherwise navigate to the main game page (prefer known local servers)
                 // Ensure the game does NOT reopen the journal on load
                 try { localStorage.setItem('openJournalOnGameLoad', 'false'); } catch {}
                 try { localStorage.setItem('resumeGameOnLoad', '1'); } catch {}
                 // Land on the Games tab when the game loads
                 try { localStorage.setItem('openTabOnLoad', 'games'); } catch {}
-                // Use absolute path so we don't accidentally reload the add-on page
-                window.location.href = '/index.html';
+                // Single-host mode: always navigate to same-origin index.html
+                try {
+                    const sameOriginGame = new URL('/index.html', window.location.origin).href;
+                    window.location.href = sameOriginGame;
+                } catch {
+                    window.location.href = '/index.html';
+                }
             } catch (err) {
                 console.warn('Failed to launch Quantum Field:', err);
                 this.showDebugMessage('Unable to open the Quantum Field.');

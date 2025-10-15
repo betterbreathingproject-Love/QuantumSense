@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class BinauralPanelManager {
   constructor(scene, binauralGenerator, uiManager) {
     this.scene = scene;

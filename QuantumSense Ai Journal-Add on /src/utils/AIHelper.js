@@ -73,9 +73,11 @@ class AIHelper {
      * @returns {Promise<string|null>} - AI response or null if unavailable
      */
     async ask(prompt, options = {}) {
-        if (!this.isReady() && !this.init()) {
-            console.warn('AI is not available');
-            return null;
+        if (!this.isReady()) {
+            if (!this.init()) {
+                console.warn('AI is not available');
+                return null;
+            }
         }
         try {
             const response = await this.provider.getResponse(prompt);
@@ -91,9 +93,11 @@ class AIHelper {
      * @returns {Promise<string|null>} - AI response or null if unavailable
      */
     async askWithHistory(prompt) {
-        if (!this.isReady() && !this.init()) {
-            console.warn('AI is not available');
-            return null;
+        if (!this.isReady()) {
+            if (!this.init()) {
+                console.warn('AI is not available');
+                return null;
+            }
         }
         try {
             const response = await this.provider.getResponseWithHistory(prompt);
@@ -110,9 +114,11 @@ class AIHelper {
      * @returns {Promise<string|null>} - AI analysis or null if unavailable
      */
     async processLargeDataset(journalEntries, analysisType = 'patterns') {
-        if (!this.isReady() && !this.init()) {
-            console.warn('AI is not available');
-            return null;
+        if (!this.isReady()) {
+            if (!this.init()) {
+                console.warn('AI is not available');
+                return null;
+            }
         }
         try {
             const payload = await this.getUnifiedPayload(journalEntries, analysisType);

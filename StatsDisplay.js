@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 export class StatsDisplay {
   constructor(scene, statsTracker) {
     this.scene = scene;

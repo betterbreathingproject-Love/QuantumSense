@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class AchievementManager {
   constructor(scene, statsTracker, tooltipManager) {
     this.scene = scene;

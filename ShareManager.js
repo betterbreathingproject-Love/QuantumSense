@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class ShareManager {
   constructor(scene, statsTracker) {
     this.scene = scene;

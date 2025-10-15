@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class IndividualStatsPanel {
   constructor(scene, statsTracker) {
     this.scene = scene;

@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { GlobalStatsManager } from './GlobalStatsManager.js';
 
 export class GlobalTrendsPanel {

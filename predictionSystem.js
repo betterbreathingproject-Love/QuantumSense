@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class PredictionSystem {
   constructor(scene, uiManager, getJournalState = null) {
     this.scene = scene;
@@ -227,8 +228,9 @@ export class PredictionSystem {
     const x = container.x;
     const y = container.y;
     
-    // MASSIVE screen shake for prediction
-    this.scene.cameras.main.shake(400, 0.015);
+    // MASSIVE screen shake for prediction - with responsive scaling
+    const shakeIntensity = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(0.015) : 0.015;
+    this.scene.cameras.main.shake(400, shakeIntensity);
     
     // Multi-stage compression and explosion
     this.scene.tweens.add({
@@ -273,6 +275,10 @@ export class PredictionSystem {
             energyRing.setPosition(this.container.x + x, this.container.y + y);
             energyRing.setBlendMode(Phaser.BlendModes.ADD);
             
+            // Scale ring size and stroke width responsively
+            const ringRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(40) : 40;
+            const strokeWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(6 - i) : (6 - i);
+            
             this.scene.tweens.add({
                 targets: energyRing,
                 scaleX: { from: 0.1, to: 4 + i },
@@ -281,8 +287,8 @@ export class PredictionSystem {
                 duration: 800,
                 ease: 'Cubic.easeOut',
                 onStart: () => {
-                    energyRing.lineStyle(6 - i, 0x00e5ff, 1);
-                    energyRing.strokeCircle(0, 0, 40);
+                    energyRing.lineStyle(strokeWidth, 0x00e5ff, 1);
+                    energyRing.strokeCircle(0, 0, ringRadius);
                 },
                 onComplete: () => energyRing.destroy()
             });
@@ -323,14 +329,21 @@ export class PredictionSystem {
     }
     
     // MEGA explosion particle effect with multiple emitters
+    const scaledSpeed = this.scene.scalingUtils ? {
+        min: this.scene.scalingUtils.scaleDimension(300),
+        max: this.scene.scalingUtils.scaleDimension(700)
+    } : { min: 300, max: 700 };
+    
+    const scaledGravity = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(50) : 50;
+    
     const megaEmitter = this.scene.add.particles(this.container.x + x, this.container.y + y, 'particle', {
-        speed: { min: 300, max: 700 },
+        speed: scaledSpeed,
         angle: { min: 0, max: 360 },
         scale: { start: 1.2, end: 0 },
         blendMode: 'ADD',
         lifespan: 1200,
         tint: [0x00e5ff, 0x8a2be2, 0xffffff, 0xffff00],
-        gravityY: 50,
+        gravityY: scaledGravity,
         quantity: 15,
         frequency: 30
     });
@@ -338,21 +351,33 @@ export class PredictionSystem {
     megaEmitter.explode(80);
     
     // Secondary spiral emitter with enhanced effects
+    const scaledSpiralSpeed = this.scene.scalingUtils ? {
+        min: this.scene.scalingUtils.scaleDimension(200),
+        max: this.scene.scalingUtils.scaleDimension(500)
+    } : { min: 200, max: 500 };
+    
+    const scaledSpiralGravity = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(-100) : -100;
+    
     const spiralEmitter = this.scene.add.particles(this.container.x + x, this.container.y + y, 'star', {
-        speed: { min: 200, max: 500 },
+        speed: scaledSpiralSpeed,
         angle: { min: 0, max: 360 },
         scale: { start: 0.8, end: 0 },
         blendMode: 'ADD',
         lifespan: 1000,
         tint: [0x00e5ff, 0x8a2be2],
-        gravityY: -100
+        gravityY: scaledSpiralGravity
     });
     spiralEmitter.setDepth(999);
     spiralEmitter.explode(40);
     
     // Add intuition-themed particle burst
+    const scaledIntuitionSpeed = this.scene.scalingUtils ? {
+        min: this.scene.scalingUtils.scaleDimension(100),
+        max: this.scene.scalingUtils.scaleDimension(250)
+    } : { min: 100, max: 250 };
+    
     const intuitionEmitter = this.scene.add.particles(this.container.x + x, this.container.y + y, 'particle', {
-        speed: { min: 100, max: 250 },
+        speed: scaledIntuitionSpeed,
         angle: { min: 0, max: 360 },
         scale: { start: 0.6, end: 0 },
         blendMode: 'ADD',
@@ -371,6 +396,10 @@ export class PredictionSystem {
     ringWave.setPosition(this.container.x + x, this.container.y + y);
     ringWave.setBlendMode(Phaser.BlendModes.ADD);
     
+    // Scale ring wave properties responsively
+    const waveRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(30) : 30;
+    const waveStrokeWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(8) : 8;
+    
     this.scene.tweens.add({
         targets: ringWave,
         scaleX: { from: 0.1, to: 3 },
@@ -379,8 +408,8 @@ export class PredictionSystem {
         duration: 600,
         ease: 'Cubic.easeOut',
         onStart: () => {
-            ringWave.lineStyle(8, 0x00e5ff, 1);
-            ringWave.strokeCircle(0, 0, 30);
+            ringWave.lineStyle(waveStrokeWidth, 0x00e5ff, 1);
+            ringWave.strokeCircle(0, 0, waveRadius);
         },
         onComplete: () => {
             ringWave.destroy();
@@ -395,6 +424,10 @@ export class PredictionSystem {
             miniRing.setPosition(this.container.x + x, this.container.y + y);
             miniRing.setBlendMode(Phaser.BlendModes.ADD);
             
+            // Scale mini ring properties responsively
+            const miniRadius = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(20) : 20;
+            const miniStrokeWidth = this.scene.scalingUtils ? this.scene.scalingUtils.scaleDimension(4) : 4;
+            
             this.scene.tweens.add({
                 targets: miniRing,
                 scaleX: { from: 0.1, to: 2 },
@@ -403,8 +436,8 @@ export class PredictionSystem {
                 duration: 400,
                 ease: 'Cubic.easeOut',
                 onStart: () => {
-                    miniRing.lineStyle(4, 0x8a2be2, 1);
-                    miniRing.strokeCircle(0, 0, 20);
+                    miniRing.lineStyle(miniStrokeWidth, 0x8a2be2, 1);
+                    miniRing.strokeCircle(0, 0, miniRadius);
                 },
                 onComplete: () => {
                     miniRing.destroy();

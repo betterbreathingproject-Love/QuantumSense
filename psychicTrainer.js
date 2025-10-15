@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class PsychicTrainer {
   constructor(scene, uiStateCallbacks) {
     this.scene = scene;

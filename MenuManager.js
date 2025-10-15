@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class MenuManager {
   constructor(scene, statsTracker, binauralGenerator, onProfileToggle, onBinauralToggle, onLeaderboardToggle, onResetToggle, onMyStatsToggle) {
     this.scene = scene;

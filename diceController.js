@@ -1,14 +1,23 @@
+import Phaser from 'phaser';
+import { getScalingUtils } from './ScalingUtils.js';
+
 export class DiceController {
   constructor(scene) {
     this.scene = scene;
     this.isRolling = false;
     this.breathingTween = null;
+    
+    // Initialize scaling utilities
+    this.scalingUtils = scene.scalingUtils || getScalingUtils();
+    
     this.createDiceDisplay();
   }
   createDiceDisplay() {
+    // Use the fixed design-space so the entire app stays stable under FIT scaling
     const width = this.scene.sys.game.config.width;
     const height = this.scene.sys.game.config.height;
     
+    // Core container that holds coin/dice/box UI.
     this.resultContainer = this.scene.add.container(width / 2, height / 2 - 100);
     const size = 140; // Reduced from 180 to prevent overlapping with top UI
     this.diceGraphics = this.scene.add.graphics();
@@ -29,7 +38,7 @@ export class DiceController {
     // Use LINEAR filtering for smooth anti-aliasing
     this.tailsSprite.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.catSprite = this.scene.add.text(0, -size, '😻', {
-        fontSize: '120px',
+        fontSize: this.scalingUtils.scaleFontSize(120),
         color: '#ffffff',
         align: 'center'
     }).setOrigin(0.5);
@@ -75,7 +84,7 @@ export class DiceController {
     
     this.numberText = this.scene.add.text(0, 0, '', {
         fontFamily: 'Arial, sans-serif',
-        fontSize: '100px',
+        fontSize: this.scalingUtils.scaleFontSize(100),
         color: '#000000',
         fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -86,6 +95,7 @@ export class DiceController {
     
     // Removed omming sound functionality
     this.resultContainer.setVisible(false);
+
   }
   createBox(index, size) {
     const boxWidth = 100;
@@ -310,20 +320,22 @@ export class DiceController {
         ease: 'Cubic.easeOut'
     });
     
-    // Wobble effect that increases then decreases
+    // Wobble effect that increases then decreases - scaled for responsiveness
+    const wobbleDistance = this.scene.scalingUtils.scaleDimension(30);
     this.scene.tweens.add({
         targets: this.resultContainer,
-        x: this.resultContainer.x + 30,
+        x: this.resultContainer.x + wobbleDistance,
         duration: duration * 0.3,
         ease: 'Sine.easeInOut',
         yoyo: true,
         repeat: 3
     });
     
-    // Slight vertical bounce
+    // Slight vertical bounce - scaled for responsiveness
+    const bounceHeight = this.scene.scalingUtils.scaleDimension(20);
     this.scene.tweens.add({
         targets: this.resultContainer,
-        y: startY - 20,
+        y: startY - bounceHeight,
         duration: duration * 0.4,
         ease: 'Bounce.easeOut',
         yoyo: true,
@@ -514,7 +526,7 @@ export class DiceController {
     }
     
     this.scene.tweens.killTweensOf(this.resultContainer);
-    if (this.resultContainer && this.resultContainer.scene) this.resultContainer.setScale(1); // End spin scale
+    if (this.resultContainer && this.resultContainer.scene) this.resultContainer.setScale(1);
     this.resultContainer.setAlpha(1);
     this.scene.tweens.add({
       targets: this.resultContainer,
@@ -705,15 +717,17 @@ export class DiceController {
       // Play the success fanfare sound - now properly loaded
       this.scene.playSound('success-fanfare-trumpets-6185', { volume: 0.8 });
       
-      // MASSIVE screen shake for dramatic effect
-      this.scene.cameras.main.shake(800, 0.02);
+      // MASSIVE screen shake for dramatic effect - scaled for responsiveness
+      const shakeIntensity = this.scene.scalingUtils.scaleDimension(0.02);
+      this.scene.cameras.main.shake(800, shakeIntensity);
       
       // Create multiple expanding light rings
       for (let i = 0; i < 5; i++) {
           this.scene.time.delayedCall(i * 100, () => {
               const light = this.scene.add.graphics();
               light.fillStyle(0xffff00, 0.6 - i * 0.1);
-              light.fillCircle(0, 0, 100 + i * 50);
+              const ringRadius = this.scene.scalingUtils.scaleDimension(100 + i * 50);
+              light.fillCircle(0, 0, ringRadius);
               light.setBlendMode(Phaser.BlendModes.ADD);
               this.resultContainer.addAt(light, 0);
               
@@ -840,17 +854,19 @@ export class DiceController {
       // Play the game over sound with dramatic volume
       this.scene.playSound('game-over-arcade-6435', { volume: 0.8 });
       
-      // Intense screen shake - more dramatic than win
-      this.scene.cameras.main.shake(600, 0.015);
+      // Intense screen shake - more dramatic than win - scaled for responsiveness
+      const shakeIntensity = this.scene.scalingUtils.scaleDimension(0.015);
+      this.scene.cameras.main.shake(600, shakeIntensity);
       
       // Multiple glitch effects
       const originalX = this.resultContainer.x;
       const originalY = this.resultContainer.y;
       
-      // Rapid glitch sequence
+      // Rapid glitch sequence with scaled intensity
       for (let i = 0; i < 8; i++) {
           this.scene.time.delayedCall(i * 50, () => {
-              const intensity = 15 - i * 1.5;
+              const baseIntensity = 15 - i * 1.5;
+              const intensity = this.scene.scalingUtils.scaleDimension(baseIntensity);
               this.resultContainer.x = originalX + Phaser.Math.Between(-intensity, intensity);
               this.resultContainer.y = originalY + Phaser.Math.Between(-intensity/2, intensity/2);
           });
@@ -929,11 +945,13 @@ export class DiceController {
   resetDice() {
       const width = this.scene.sys.game.config.width;
       const height = this.scene.sys.game.config.height;
-      if (this.resultContainer && this.resultContainer.scene) {
-          this.resultContainer.setPosition(width / 2, height / 2 - 100).setAngle(0).setScale(1);
-          this.resultContainer.setVisible(true);
-          this.resultContainer.setAlpha(1);
-      }
+    if (this.resultContainer && this.resultContainer.scene) {
+      const width = this.scene.sys.game.config.width;
+      const height = this.scene.sys.game.config.height;
+      this.resultContainer.setPosition(width / 2, height / 2 - 100).setAngle(0).setScale(1);
+      this.resultContainer.setVisible(true);
+      this.resultContainer.setAlpha(1);
+    }
       
       const activeLevel = this.scene.currentActiveLevel;
       const isEmotional = activeLevel === 3;
@@ -1087,7 +1105,8 @@ export class DiceController {
     if (!box || !box.visible) return;
     this.scene.playSound('button_hover_click', { volume: 0.3 });
     const originalX = box.x;
-    const intensity = 5;
+    const baseIntensity = 5;
+    const intensity = this.scene.scalingUtils.scaleDimension(baseIntensity);
     this.scene.tweens.add({
       targets: box,
       x: `+=${Phaser.Math.FloatBetween(-intensity, intensity)}`,

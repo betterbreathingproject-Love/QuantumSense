@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { StatsDisplay } from './StatsDisplay.js';
 import { MenuManager } from './MenuManager.js';
 import { AchievementManager } from './AchievementManager.js';
@@ -8,12 +9,16 @@ import { ModalManager } from './ModalManager.js';
 import { SliderTooltipUtils } from './SliderTooltipUtils.js';
 import { TooltipManager } from './TooltipManager.js';
 import { WheelEventManager } from './WheelEventManager.js';
+import { getScalingUtils } from './ScalingUtils.js';
 // Removed DailyCheckInManager import - no longer needed
 export class UIManager {
   constructor(scene, statsTracker, binauralGenerator) {
     this.scene = scene;
     this.statsTracker = statsTracker;
     this.binauralGenerator = binauralGenerator;
+    
+    // Initialize scaling utilities
+    this.scalingUtils = scene.scalingUtils || getScalingUtils();
     
     // Initialize wheel event manager first
     this.wheelEventManager = new WheelEventManager(scene);
@@ -74,35 +79,35 @@ export class UIManager {
     const { width, height } = this.scene.sys.game.config;
     
     // Main UI container - everything UI related goes here
-    this.mainUIContainer = this.scene.add.container(0, 0);
+    this.mainUIContainer = this.scalingUtils.createResponsiveContainer(0, 0);
     this.mainUIContainer.setDepth(100);
     
     // Left side container - for psychic meter and related elements
-    this.leftSideContainer = this.scene.add.container(0, 0);
+    this.leftSideContainer = this.scalingUtils.createResponsiveContainer(0, 0);
     this.leftSideContainer.setDepth(110);
     
     // Right side container - for coherence meter and shields
-    this.rightSideContainer = this.scene.add.container(0, 0);
+    this.rightSideContainer = this.scalingUtils.createResponsiveContainer(0, 0);
     this.rightSideContainer.setDepth(110);
     
     // Top UI container - for stats bar and achievement badges
-    this.topUIContainer = this.scene.add.container(0, 0);
+    this.topUIContainer = this.scalingUtils.createResponsiveContainer(0, 0);
     this.topUIContainer.setDepth(120);
     
-    // Compact stats container - for condensed stat display
-    this.compactStatsContainer = this.scene.add.container(width / 2, 30);
+    // Compact stats container - for condensed stat display (responsive positioning)
+    this.compactStatsContainer = this.scalingUtils.createResponsiveContainer(width / 2, 30);
     this.compactStatsContainer.setDepth(125);
     
     // Mobile-friendly container - for touch controls and mobile layouts
-    this.mobileContainer = this.scene.add.container(0, 0);
+    this.mobileContainer = this.scalingUtils.createResponsiveContainer(0, 0);
     this.mobileContainer.setDepth(130);
     
-    // Achievement mini container - for smaller badge display
-    this.achievementMiniContainer = this.scene.add.container(width - 60, 100);
+    // Achievement mini container - for smaller badge display (responsive positioning)
+    this.achievementMiniContainer = this.scalingUtils.createResponsiveContainer(width - 60, 100);
     this.achievementMiniContainer.setDepth(140);
     
-    // Status indicator container - for compact status displays
-    this.statusIndicatorContainer = this.scene.add.container(30, height - 100);
+    // Status indicator container - for compact status displays (responsive positioning)
+    this.statusIndicatorContainer = this.scalingUtils.createResponsiveContainer(30, height - 100);
     this.statusIndicatorContainer.setDepth(150);
     
     // Add all containers to main container for easy management
@@ -121,16 +126,38 @@ export class UIManager {
     this.originalHeight = height;
     this.scaleFactor = 1;
     
-    console.log('New organized containers created for UI downsizing');
+    // Listen for scaling updates to reposition containers
+    this.scene.events.on('scalingUpdated', () => {
+      this.updateContainerPositions();
+    });
+    
+    console.log('New organized containers created with responsive scaling');
+  }
+  
+  updateContainerPositions() {
+    const { width, height } = this.scene.sys.game.config;
+    
+    // Update responsive container positions
+    this.compactStatsContainer.x = this.scalingUtils.scaleXCoordinate(width / 2);
+    this.compactStatsContainer.y = this.scalingUtils.scaleYCoordinate(30);
+    
+    this.achievementMiniContainer.x = this.scalingUtils.scaleXCoordinate(width - 60);
+    this.achievementMiniContainer.y = this.scalingUtils.scaleYCoordinate(100);
+    
+    this.statusIndicatorContainer.x = this.scalingUtils.scaleXCoordinate(30);
+    this.statusIndicatorContainer.y = this.scalingUtils.scaleYCoordinate(height - 100);
   }
   
   createProfileContainers() {
-     const { width, height } = this.scene.sys.game.config;
-     
-     // Create main profile container
-     this.profileContainer = this.scene.add.container(width / 2, height + height / 2);
-     this.profileContainer.setDepth(2000);
-     this._profileOpen = false; // Use private property to avoid getter conflict
+    const { width, height } = this.scene.sys.game.config;
+    
+    // Create main profile container
+    this.profileContainer = this.scene.add.container(width / 2, height + height / 2);
+    this.profileContainer.setDepth(2000);
+    // Ensure the profile container is not visible when initialized so it cannot peek
+    // at the bottom of the screen due to scaling or layout changes.
+    this.profileContainer.setVisible(false);
+    this._profileOpen = false; // Use private property to avoid getter conflict
      
      const panelHeight = height * 0.9;
      const panelWidth = Math.min(600, width * 0.95);
@@ -156,43 +183,17 @@ export class UIManager {
    }
 
   createProfileButton(x, y, text, callback, color = '#00e5ff') {
-    const button = this.scene.add.text(x, y, text, {
+    // Use the new responsive button creation method from ScalingUtils
+    const button = this.scalingUtils.createResponsiveButton(x, y, text, {
       fontFamily: 'Arial, sans-serif', 
-      fontSize: '20px', 
+      fontSize: 20, 
       color: color,
       backgroundColor: '#2d0b4b',
       padding: { x: 20, y: 12 },
       align: 'center'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    
-    button.on('pointerover', () => {
-      this.scene.tweens.add({ 
-        targets: button, 
-        scale: 1.05, 
-        duration: 200, 
-        ease: 'Sine.easeOut' 
-      });
-    });
-    
-    button.on('pointerout', () => {
-      this.scene.tweens.add({ 
-        targets: button, 
-        scale: 1, 
-        duration: 200, 
-        ease: 'Sine.easeIn' 
-      });
-    });
-    
-    button.on('pointerdown', () => {
+    }, () => {
       this.scene.playSound('button_ambience');
-      this.scene.tweens.add({ 
-        targets: button, 
-        scale: 0.95, 
-        duration: 100, 
-        ease: 'Sine.easeIn', 
-        yoyo: true, 
-        onComplete: callback 
-      });
+      callback();
     });
     
     return button;
@@ -260,16 +261,16 @@ export class UIManager {
     
     // Shield display above the meter
     this.meterLevelText = this.scene.add.text(x, y + meterHeight + 20, '🌱 NOVICE', {
-      fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#c9c9c9', fontStyle: 'bold'
+      fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(14), color: '#c9c9c9', fontStyle: 'bold'
     }).setOrigin(0.5);
     
     // Streak fire display
     this.streakFireText = this.scene.add.text(x, y + meterHeight + 45, '', {
-      fontFamily: 'Arial, sans-serif', fontSize: '16px', color: '#ff6600', fontStyle: 'bold'
+      fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(16), color: '#ff6600', fontStyle: 'bold'
     }).setOrigin(0.5);
     
     const powerLabel = this.scene.add.text(x, y - 20, 'DIVINE\nPOWER', {
-      fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#c9c9c9', align: 'center'
+      fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(14), color: '#c9c9c9', align: 'center'
     }).setOrigin(0.5);
     this.psychicMeterContainer.add([this.meterBG, this.meterFill, this.meterLevelText, this.streakFireText, powerLabel]);
     
@@ -301,7 +302,7 @@ export class UIManager {
       const shieldIcon = this.scene.add.image(0, 0, 'gold_shield').setScale(0.12).setOrigin(0.5);
       const shieldCount = this.scene.add.text(0, 35, '0', {
           fontFamily: 'Arial, sans-serif',
-          fontSize: '24px',
+          fontSize: this.scalingUtils.scaleFontSize(24),
           color: '#ffffff',
           fontStyle: 'bold',
           stroke: '#000000',
@@ -312,7 +313,7 @@ export class UIManager {
       this.shieldContainer.add([shieldIcon, shieldCount]);
       this.shieldContainer.shieldCountText = shieldCount;
       const meterLabel = this.scene.add.text(-1, meterHeight + 20, 'COHERENCE', {
-          fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#c9c9c9', fontStyle: 'bold'
+          fontFamily: 'Arial, sans-serif', fontSize: this.scalingUtils.scaleFontSize(12), color: '#c9c9c9', fontStyle: 'bold'
       }).setOrigin(0.5);
     this.coherenceContainer.add([bg, this.coherenceMeterFill, this.shieldContainer, meterLabel]);
     this.coherenceContainer.setVisible(true); // Always visible
@@ -368,20 +369,36 @@ export class UIManager {
   createStatItem(x, y, value, label, tooltipText) {
     const valueStyle = {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '28px',
+      fontSize: 28,
       color: '#00e5ff',
       fontStyle: 'bold'
     };
     const labelStyle = {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '14px',
+      fontSize: 14,
       color: '#c9c9c9'
     };
-    const valueText = this.scene.add.text(0, 0, value, valueStyle).setOrigin(0.5);
-    const labelText = this.scene.add.text(0, 25, label, labelStyle).setOrigin(0.5);
     
-    const container = this.scene.add.container(x, y, [valueText, labelText]);
-    container.setInteractive(new Phaser.Geom.Rectangle(-50, -40, 100, 80), Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
+    // Use responsive text creation from ScalingUtils
+    const valueText = this.scalingUtils.createResponsiveText(0, 0, value, valueStyle);
+    valueText.setOrigin(0.5);
+    
+    const labelText = this.scalingUtils.createResponsiveText(0, 25, label, labelStyle);
+    labelText.setOrigin(0.5);
+    
+    // Use responsive container creation
+    const container = this.scalingUtils.createResponsiveContainer(x, y);
+    container.add([valueText, labelText]);
+    
+    // Scale interactive area based on screen size
+    const interactiveSize = this.scalingUtils.scaleSpacing(100);
+    const interactiveHeight = this.scalingUtils.scaleSpacing(80);
+    
+    container.setInteractive(
+      new Phaser.Geom.Rectangle(-interactiveSize/2, -40, interactiveSize, interactiveHeight), 
+      Phaser.Geom.Rectangle.Contains, 
+      { useHandCursor: true }
+    );
     
     container.on('pointerover', (pointer) => {
         this.tooltipManager.createStatTooltip(tooltipText, container);
@@ -389,6 +406,7 @@ export class UIManager {
     container.on('pointerout', () => {
         this.tooltipManager.hideTooltip(container);
     });
+    
     return { valueText, labelText, container };
   }
   updatePsychicMeter(power, level, shouldAnimate = false) {
@@ -659,11 +677,22 @@ export class UIManager {
       this.wheelEventManager.unregisterHandler('profileScroll');
     }
     
+    // Make sure the container is visible before animating it into view
+    if (this._profileOpen) {
+      this.profileContainer.setVisible(true);
+    }
+    
     this.scene.tweens.add({
       targets: this.profileContainer,
       y: targetY,
       duration: 500,
-      ease: 'Cubic.easeInOut'
+      ease: 'Cubic.easeInOut',
+      onComplete: () => {
+        // After closing animation finishes, hide the container so nothing peeks
+        if (!this._profileOpen) {
+          this.profileContainer.setVisible(false);
+        }
+      }
     });
     
     this.menuManager.setProfileOpen(this._profileOpen);
@@ -1998,7 +2027,8 @@ Session Duration: ${sessionDurationMins}m`;
       
       if (shouldShowLabel) {
         const scoreText = this.scene.add.text(point.x, point.y - 25, Math.round(score).toString(), {
-          fontSize: '12px', color: '#8a2be2', fontStyle: 'bold',
+          fontSize: this.scene.scalingUtils ? this.scene.scalingUtils.scaleFontSize(12) : '12px',
+          color: '#8a2be2', fontStyle: 'bold',
           stroke: '#000000', strokeThickness: 2
         }).setOrigin(0.5);
         container.add(scoreText);
@@ -2010,7 +2040,8 @@ Session Duration: ${sessionDurationMins}m`;
     yLabels.forEach((label, index) => {
       const y = -chartHeight / 2 + 10 + (index * (chartHeight - 20) / 2);
       const yLabel = this.scene.add.text(-chartWidth / 2 - 15, y, Math.round(label).toString(), {
-        fontSize: '11px', color: '#c9c9c9', fontStyle: 'bold'
+        fontSize: this.scene.scalingUtils ? this.scene.scalingUtils.scaleFontSize(11) : '11px',
+        color: '#c9c9c9', fontStyle: 'bold'
       }).setOrigin(1, 0.5);
       container.add(yLabel);
     });
@@ -2019,7 +2050,8 @@ Session Duration: ${sessionDurationMins}m`;
     if (scoreHistory.length > 0) {
       const currentScore = Math.round(scoreHistory[scoreHistory.length - 1].score);
       const currentLabel = this.scene.add.text(0, chartHeight / 2 + 25, `Current Score: ${currentScore}`, {
-        fontSize: '16px', color: '#00e5ff', fontStyle: 'bold',
+        fontSize: this.scene.scalingUtils ? this.scene.scalingUtils.scaleFontSize(16) : '16px',
+        color: '#00e5ff', fontStyle: 'bold',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
       container.add(currentLabel);
@@ -2033,7 +2065,8 @@ Session Duration: ${sessionDurationMins}m`;
         
         const trendText = this.scene.add.text(120, chartHeight / 2 + 25, 
           `${trendIcon} ${change > 0 ? '+' : ''}${Math.round(change)}`, {
-          fontSize: '14px', color: trendColor, fontStyle: 'bold'
+          fontSize: this.scene.scalingUtils ? this.scene.scalingUtils.scaleFontSize(14) : '14px',
+          color: trendColor, fontStyle: 'bold'
         }).setOrigin(0, 0.5);
         container.add(trendText);
       }

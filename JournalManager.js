@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 export class JournalManager {
   constructor(scene, uiCallbacks) {
     this.scene = scene;

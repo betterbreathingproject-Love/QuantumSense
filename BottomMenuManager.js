@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { GlobalTrendsPanel } from './GlobalTrendsPanel.js';
 
 // Lightweight replacement panels to streamline the bottom menu behavior
@@ -230,19 +231,25 @@ class OnboardingDashPanel {
       });
     } catch {}
 
-    // Backdrop to fully block game scene under the embedded area while preserving bottom menu
+    // Backdrop: visually unify with other panels without feeling like a modal overlay.
+    // Reserve space for a lightweight header at the top and the bottom menu at the bottom.
     const bgOverlay = document.createElement('div');
-    // Backdrop blocks pointer events over the content area and visually hides the gameplay behind
-    // Leave bottom menu area clickable (bottom:100px)
-    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom: var(--bottom-menu-height, 100px) !important; pointer-events:auto; z-index:0; background: rgba(6, 8, 18, 0.96);';
+    bgOverlay.style.cssText = 'position:absolute; left:0; right:0; top: var(--menu-header-height, 60px); bottom: var(--bottom-menu-height, 100px) !important; pointer-events:none; z-index:0; background: rgba(6, 8, 18, 0.92);';
     this.mountEl.appendChild(bgOverlay);
+
+    // Simple header bar to visually align the embedded dash with other tab sections
+    const headerBar = document.createElement('div');
+    headerBar.className = 'embedded-header';
+    headerBar.style.cssText = 'position:absolute; left:0; right:0; top:0; height: var(--menu-header-height, 60px); display:flex; align-items:center; padding: 0 16px; box-sizing:border-box; background: rgba(12, 14, 26, 0.96); border-bottom: 1px solid rgba(138,43,226,0.35); color:#c9c9ff; font-family: Arial, sans-serif; font-weight:600; letter-spacing:0.3px; z-index:2; pointer-events:none;';
+    headerBar.textContent = (this.instanceName === 'ai') ? 'Infinity AI' : 'Home';
+    this.mountEl.appendChild(headerBar);
 
     // Create required containers for JournalApp
     const root = document.createElement('div');
     root.className = 'embedded-journal-root';
     // Leave bottom 100px clear for the Phaser bottom menu and allow inner content to capture input
     // Root remains transparent; black backdrop above ensures no bleed-through
-    root.style.cssText = 'position:absolute; left:0; right:0; top:0; bottom: var(--bottom-menu-height, 100px) !important; overflow:auto; pointer-events:auto; background: rgba(10, 12, 24, 0.98); z-index:1; outline: 1px solid rgba(0,255,136,0.25);';
+    root.style.cssText = 'position:absolute; left:0; right:0; top: var(--menu-header-height, 60px); bottom: var(--bottom-menu-height, 100px) !important; overflow:auto; pointer-events:auto; background: rgba(10, 12, 24, 0.98); z-index:1; outline: 1px solid rgba(0,255,136,0.25);';
     // Mark AI Dash instances so JournalApp can tailor layout (skip onboarding, reorder sections)
     if (this.instanceName === 'ai') {
       try { root.setAttribute('data-ai-dash', 'true'); window.__AI_DASH__ = true; } catch {}
@@ -263,10 +270,35 @@ class OnboardingDashPanel {
     this.mountEl.appendChild(root);
 
     // Load and initialize JournalApp (it will show onboarding or the dashboard as needed)
-    const mod = await import('components/JournalApp.js');
-    // NOTE: JournalApp attaches to #journalInterface internally.
-    // Because we renamed any other existing IDs above, it will bind to THIS instance.
-    this.journalApp = new mod.JournalApp();
+    try {
+      const mod = await import('components/JournalApp.js');
+      // NOTE: JournalApp attaches to #journalInterface internally.
+      // Because we renamed any other existing IDs above, it will bind to THIS instance.
+      this.journalApp = new mod.JournalApp();
+    } catch (err) {
+      console.warn('OnboardingDashPanel: JournalApp import failed, falling back to embedded onboarding', err);
+      // If JournalApp fails to load (e.g., module mapping not available), mount onboarding inside the same container
+      try {
+        const mod = await import('components/OnboardingManager.js');
+        const onComplete = () => {
+          try { localStorage.setItem('quantumsense-onboarding-complete', 'true'); } catch {}
+          // Retry JournalApp after onboarding completes
+          this._renderJournalApp();
+        };
+        // Prefer rendering inside the journalInterface so styles apply correctly
+        const mountTarget = this.mountEl.querySelector('#journalInterface') || this.mountEl;
+        this.manager = new mod.OnboardingManager(mountTarget, onComplete);
+      } catch (fallbackErr) {
+        console.error('OnboardingDashPanel: fallback onboarding also failed', fallbackErr);
+        // Last resort: show a minimal message so the area isn’t blank
+        try {
+          const msg = document.createElement('div');
+          msg.style.cssText = 'position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#c9c9ff; font-family: Arial, sans-serif;';
+          msg.textContent = 'We’re loading your dashboard… Please refresh if it doesn’t appear.';
+          this.mountEl.appendChild(msg);
+        } catch {}
+      }
+    }
   }
 
   isVisible() { return this.visible; }

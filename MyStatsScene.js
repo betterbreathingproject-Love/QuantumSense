@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { WheelEventManager } from './WheelEventManager.js';
 
 export class MyStatsScene extends Phaser.Scene {
